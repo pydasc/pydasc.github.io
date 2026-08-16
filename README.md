@@ -53,20 +53,25 @@ status intact.
 
 ## Publication manifest
 
-Only entries in `docs-manifest.yml` may cross the public-site boundary. Production refs are full commit SHAs so a build is reproducible and cannot silently ingest newly pushed content.
+Only entries in `docs-manifest.yml` may cross the public-site boundary. Production
+checkout commits are full commit SHAs so a build is reproducible and cannot
+silently ingest newly pushed content. Each source also names the upstream
+publication contract that approves the selected files.
 
 ```yaml
-schema_version: 1
+schema_version: 2
 sources:
   pydasc:
-    repository: chongshikpark/pydasc
-    ref: "<40-character commit SHA>"
+    repository: https://github.com/chongshikpark/pydasc
+    checkout_commit: "<40-character commit SHA>"
+    publication_manifest: docs/publication-manifest.json
     files:
       - source: README.md
         destination: pydasc/index.md
   dasc:
-    repository: chongshikpark/dasc
-    ref: "<40-character commit SHA>"
+    repository: https://github.com/chongshikpark/dasc
+    checkout_commit: "<40-character commit SHA>"
+    publication_manifest: docs/publication-manifest.json
     files:
       - source: README.md
         destination: dasc/index.md
@@ -202,7 +207,8 @@ requirements that a future, explicitly reviewed approval must satisfy.
 
 1. Choose a reviewed commit from `chongshikpark/pydasc` or `chongshikpark/dasc`.
 2. Audit each proposed source file for public suitability and licensing.
-3. Update the source `ref` and explicit file entries in `docs-manifest.yml`.
+3. Update the source `checkout_commit`, `publication_manifest`, and explicit file
+   entries in `docs-manifest.yml` as required by the reviewed source contract.
 4. Run collection, validation, tests, and the strict MkDocs build.
 5. Inspect the rendered navigation, links, images, code blocks, attribution, and mobile layout.
 6. Submit the manifest change and any necessary portal changes for review.
