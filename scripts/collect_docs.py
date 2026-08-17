@@ -41,6 +41,10 @@ class CollectionError(ValueError):
     pass
 
 
+class UnapprovedPublicationError(CollectionError):
+    """A structurally valid source contract is not approved for publication."""
+
+
 @dataclass(frozen=True)
 class Entry:
     source_name: str
@@ -109,7 +113,7 @@ def _source_contract(path: Path, name: str, repository: str, checkout: str) -> t
     if name == "dasc":
         decision = _mapping(root["publication_decision"], {"state", "reason", "evidence"}, "dasc decision")
         if decision["state"] != "approved":
-            raise CollectionError("DASC publication decision is not approved")
+            raise UnapprovedPublicationError("DASC publication decision is not approved")
     if _git(path.parents[1], "rev-parse", "HEAD").strip() != checkout:
         raise CollectionError(f"{name} checkout commit mismatch")
     approved: dict[str, dict[str, Any]] = {}

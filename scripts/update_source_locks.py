@@ -10,7 +10,13 @@ import sys
 import tempfile
 from pathlib import Path
 
-from collect_docs import CollectionError, EXPECTED, SHA_RE, load_manifest
+from collect_docs import (
+    CollectionError,
+    EXPECTED,
+    SHA_RE,
+    UnapprovedPublicationError,
+    load_manifest,
+)
 
 
 def _head(checkout: Path) -> str:
@@ -67,17 +73,28 @@ def update(manifest: Path, checkouts: dict[str, Path]) -> dict[str, tuple[str, s
     return changes
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--manifest", type=Path, required=True)
     parser.add_argument("--pydasc", type=Path, required=True)
     parser.add_argument("--dasc", type=Path, required=True)
-    args = parser.parse_args()
+    parser.add_argument(
+        "--skip-unapproved",
+        action="store_true",
+        help="exit successfully without changing locks when a candidate contract is not approved",
+    )
+    args = parser.parse_args(argv)
     try:
         changes = update(
             args.manifest,
             {"pydasc": args.pydasc.resolve(), "dasc": args.dasc.resolve()},
         )
+    except UnapprovedPublicationError as exc:
+        if args.skip_unapproved:
+            print(f"skip: {exc}")
+            return 0
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
     except (CollectionError, OSError, UnicodeError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1

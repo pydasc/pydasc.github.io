@@ -5,6 +5,7 @@ import pytest, yaml
 sys.path.insert(0,str(Path(__file__).parents[1]/"scripts"))
 from collect_docs import CollectionError, assemble, load_manifest
 from validate_docs import validate
+from update_source_locks import main as update_source_locks_main
 from update_source_locks import update as update_source_locks
 
 def git(repo:Path,*args:str)->str:return subprocess.run(["git",*args],cwd=repo,check=True,capture_output=True,text=True).stdout.strip()
@@ -35,6 +36,13 @@ def test_source_lock_update_validates_candidate_and_changes_only_commit(tmp_path
  assert after["sources"]["pydasc"]["checkout_commit"]==git(p,"rev-parse","HEAD")
  before["sources"]["pydasc"]["checkout_commit"]=git(p,"rev-parse","HEAD")
  assert after==before
+
+def test_source_lock_cli_skips_unapproved_candidate_without_changes(tmp_path,capsys):
+ m,p,d=fixture(tmp_path);before=m.read_bytes();contract_path=d/"docs/publication-manifest.json";contract=json.loads(contract_path.read_text());contract["publication_decision"]["state"]="draft";contract_path.write_text(json.dumps(contract));git(d,"add",str(contract_path.relative_to(d)));git(d,"commit","-qm","draft contract")
+ rejected=update_source_locks_main(["--manifest",str(m),"--pydasc",str(p),"--dasc",str(d)])
+ assert rejected==1;assert m.read_bytes()==before;assert "error: DASC publication decision is not approved" in capsys.readouterr().err
+ result=update_source_locks_main(["--skip-unapproved","--manifest",str(m),"--pydasc",str(p),"--dasc",str(d)])
+ assert result==0;assert m.read_bytes()==before;assert "skip: DASC publication decision is not approved" in capsys.readouterr().out
 @pytest.mark.parametrize("value",["/README.md","../README.md","*.md","secret.env"])
 def test_unsafe_selection_rejected(tmp_path,value):
  m,p,d=fixture(tmp_path);data=yaml.safe_load(m.read_text());data["sources"]["pydasc"]["files"][0]["source"]=value;m.write_text(yaml.safe_dump(data));

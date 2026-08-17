@@ -108,6 +108,7 @@ def test_source_update_workflow_proposes_validated_review_only_prs() -> None:
     assert workflow["permissions"] == {"contents": "write", "pull-requests": "write"}
     assert uses_lines and all(ACTION_PIN.match(line) for line in uses_lines)
     assert "scripts/update_source_locks.py" in text
+    assert "--skip-unapproved" in text
     assert "credential.helper= clone" in text
     assert 'fetch --quiet --no-tags --depth=1 origin "$content_commit"' in text
     assert "python -m pytest" in text

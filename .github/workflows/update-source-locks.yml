@@ -76,6 +76,7 @@ jobs:
         if: steps.existing.outputs.skip != 'true'
         run: |
           python scripts/update_source_locks.py \
+            --skip-unapproved \
             --manifest docs-manifest.yml \
             --pydasc .source-checkouts/pydasc \
             --dasc .source-checkouts/dasc
