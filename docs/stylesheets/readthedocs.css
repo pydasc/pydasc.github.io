@@ -218,6 +218,23 @@ a,
   border-radius: 0.15rem;
 }
 
+/* Material makes bare tables inline-block scroll surfaces. Once the hook wraps
+   them, the wrapper owns scrolling; restoring table layout makes the table's
+   full width contribute to the wrapper's scrollable area. */
+.md-typeset .dasc-table-scroll > table:not([class]),
+.md-typeset .dasc-table-scroll table:not([class]) {
+  display: table;
+}
+
+/* Material adds these intermediate wrappers in the browser. They must not
+   become a second, unfocusable scroll surface inside the named region. */
+.md-typeset .dasc-table-scroll :is(.md-typeset__scrollwrap, .md-typeset__table) {
+  width: max-content;
+  max-width: none;
+  margin: 0;
+  overflow: visible;
+}
+
 .dasc-table-scroll:focus-visible {
   outline: 3px solid var(--dasc-focus);
   outline-offset: 2px;

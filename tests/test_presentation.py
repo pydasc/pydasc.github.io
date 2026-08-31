@@ -69,6 +69,15 @@ def test_mobile_accessibility_overflow_motion_and_print_rules_exist() -> None:
     assert ".dasc-table-scroll:focus-visible" in css
     assert "overflow-x: auto" in css
     assert "overscroll-behavior-inline: contain" in css
+    assert ".dasc-table-scroll > table:not([class])," in css
+    assert ".dasc-table-scroll table:not([class])" in css
+    assert re.search(
+        r"\.dasc-table-scroll\s+:is\(\.md-typeset__scrollwrap,\s*"
+        r"\.md-typeset__table\)\s*\{[^}]*"
+        r"width:\s*max-content;[^}]*overflow:\s*visible;",
+        css,
+        re.DOTALL,
+    )
     assert "counter-increment: dasc-equation" in css
     assert 'content: "(" counter(dasc-equation) ")"' in css
     assert 'aria-controls="__drawer"' in header

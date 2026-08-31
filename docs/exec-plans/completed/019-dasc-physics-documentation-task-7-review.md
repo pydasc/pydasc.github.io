@@ -3,12 +3,12 @@
 ## Review disposition
 
 **Conditional; not release-clean.** No critical model-boundary, sign, causality,
-or false-validation defect was found. DASC-REV-001 now has an automated fix and
-requires hands-on confirmation. DASC-REV-002 now has an automated fix and
-requires browser/screen-reader confirmation. DASC-REV-003 now has an automated
-fix and requires browser/screen-reader confirmation. One medium provenance
-issue, one low-severity stale-workflow issue, and one high-priority manual-test
-gap remain.
+or false-validation defect was found. DASC-REV-001 is closed after hands-on
+Chrome verification and a follow-up runtime-wrapper correction. DASC-REV-002
+now has an automated fix and requires browser/screen-reader confirmation.
+DASC-REV-003 now has an automated fix and requires browser/screen-reader
+confirmation. One medium provenance issue, one low-severity stale-workflow
+issue, and one high-priority manual-test gap remain.
 
 This was a review-only task. No disputed physics or reported defect was silently
 repaired. No source lock, imported file, manifest, deployment setting, or
@@ -43,11 +43,21 @@ publication status changed.
   that wraps every content table in a named `role="region"`, `tabindex="0"`
   scroll container. CSS supplies local horizontal overflow, overscroll
   containment, a visible focus indicator, narrow scrollbars, and print behavior.
-  The semantic validator rejects unwrapped or incorrectly attributed tables.
-- **Retest:** **Automated checks passed.** All built tables have named keyboard
-  scroll regions; regression, strict-build, site, and semantic-accessibility
-  checks pass. Hands-on narrow viewport, 200%/400% zoom, keyboard, forced-color,
-  and print/PDF testing remains pending under DASC-REV-GAP-001.
+  The semantic validator rejects unwrapped or incorrectly attributed tables. A
+  hands-on Chrome retest found that Material adds `.md-typeset__scrollwrap` and
+  `.md-typeset__table` at runtime, leaving overflow on an unfocusable nested
+  element. The CSS now makes those runtime wrappers non-scrolling and assigns
+  the complete scroll range to the named outer region.
+- **Retest:** **Closed.** Chrome testing on the method-selection, validation-
+  matrix, and reproducibility pages confirmed that every affected table has a
+  horizontal scroll range, receives keyboard focus, and moves with arrow keys.
+  The document viewport itself does not overflow at 390 px. Equivalent 720 px
+  and 360 px layout-pressure checks cover the 200% and 400% reflow cases. The
+  narrowest method table exposed a 328 px viewport over a 2733 px scroll range,
+  and keyboard input changed its scroll position. Regression, strict-build,
+  site, and semantic-accessibility checks also pass. Forced-color, screen-reader,
+  and print-preview testing remain tracked by DASC-REV-GAP-001 rather than this
+  table-clipping defect.
 
 ### High — DASC-REV-002: MathML encodes volume elements with the exponent on the variable
 
@@ -151,11 +161,11 @@ publication status changed.
 
 ### High priority — DASC-REV-GAP-001: interactive accessibility review unavailable
 
-The in-app browser backend was unavailable in this session. Therefore desktop
-and mobile interaction, keyboard navigation, 200%/400% zoom, screen-reader math,
-copy/paste, contrast, and print-to-PDF were **not tested**. Static HTML and CSS
-inspection cannot close these requirements. This gap is especially important
-because DASC-REV-001 and DASC-REV-002 affect responsive and assistive output.
+Chrome later became available and closed DASC-REV-001's mobile, keyboard, and
+high-zoom layout checks. Screen-reader math, copied equation text, forced-color
+contrast, and print-to-PDF remain **not tested**. Static HTML and CSS inspection
+cannot close those requirements. This remaining gap is especially important for
+DASC-REV-002's structured mathematical output.
 
 - **Proposed owner:** accessibility reviewer with a supported browser and screen
   reader.
