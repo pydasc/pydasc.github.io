@@ -4,15 +4,21 @@ from __future__ import annotations
 import argparse, hashlib, json, sys
 from pathlib import Path
 from urllib.parse import unquote, urlsplit
-from collect_docs import CollectionError, EXPECTED, FORBIDDEN, LINK_RE
+from collect_docs import CollectionError, EXPECTED, FORBIDDEN, LINK_RE, load_manifest
 
 def validate(manifest: Path, docs: Path) -> None:
-    del manifest
+    selected = {entry.destination.as_posix(): entry for entry in load_manifest(manifest)}
     docs = docs.resolve()
     try: inventory = json.loads((docs / "generated-inventory.json").read_text())
     except (OSError, json.JSONDecodeError) as exc: raise CollectionError(f"invalid inventory: {exc}") from exc
     if set(inventory) != {"schema_version", "files"} or inventory["schema_version"] != 1 or not isinstance(inventory["files"], list): raise CollectionError("invalid inventory schema")
     expected = {item["destination"]: item for item in inventory["files"]}
+    if len(expected) != len(inventory["files"]): raise CollectionError("duplicate inventory destination")
+    if set(expected) != set(selected):
+        raise CollectionError(
+            f"inventory differs from manifest: missing={sorted(set(selected)-set(expected))}, "
+            f"unexpected={sorted(set(expected)-set(selected))}"
+        )
     actual: set[str] = set()
     for namespace in EXPECTED:
         root = docs / namespace
@@ -23,6 +29,9 @@ def validate(manifest: Path, docs: Path) -> None:
     if actual != set(expected): raise CollectionError(f"output boundary differs: missing={sorted(set(expected)-actual)}, unexpected={sorted(actual-set(expected))}")
     for relative, item in expected.items():
         if set(item) != {"destination", "sha256", "repository", "source", "commit", "status", "license"}: raise CollectionError(f"invalid inventory item: {relative}")
+        selection = selected[relative]
+        if item["repository"] != selection.repository or item["source"] != selection.source.as_posix():
+            raise CollectionError(f"inventory provenance differs from manifest: {relative}")
         path = docs / relative
         if hashlib.sha256(path.read_bytes()).hexdigest() != item["sha256"]: raise CollectionError(f"checksum mismatch: {relative}")
         if path.suffix == ".md":

@@ -9,7 +9,6 @@ import json
 import os
 import re
 import shutil
-import stat
 import subprocess
 import sys
 import tempfile
@@ -24,8 +23,8 @@ EXPECTED = {
     "pydasc": "https://github.com/chongshikpark/pydasc",
     "dasc": "https://github.com/chongshikpark/dasc",
 }
-ALLOWED = {".md", ".png", ".jpg", ".jpeg", ".svg", ".webp"}
-MEDIA = {".md": "text/markdown", ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".svg": "image/svg+xml", ".webp": "image/webp"}
+ALLOWED = {".md", ".png", ".jpg", ".jpeg", ".webp"}
+MEDIA = {".md": "text/markdown", ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".webp": "image/webp"}
 MAX_FILE_BYTES = 5 * 1024 * 1024
 SHA_RE = re.compile(r"^[0-9a-f]{40}$")
 SPDX_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9.+-]*$")
@@ -96,9 +95,17 @@ def _inside(path: Path, root: Path) -> bool:
         return False
 
 
-def _source_contract(path: Path, name: str, repository: str, checkout: str) -> tuple[str, dict[str, dict[str, Any]]]:
+def _source_contract(
+    path: Path,
+    name: str,
+    repository: str,
+    checkout: str,
+    raw_contract: bytes | None = None,
+) -> tuple[str, dict[str, dict[str, Any]]]:
     try:
-        raw = json.loads(path.read_text(encoding="utf-8"))
+        raw = json.loads(
+            raw_contract if raw_contract is not None else path.read_text(encoding="utf-8")
+        )
     except (OSError, UnicodeError, json.JSONDecodeError) as exc:
         raise CollectionError(f"cannot read {name} publication manifest: {exc}") from exc
     root_keys = {"schema_version", "project", "repository", "source_commit", "files"}
@@ -161,7 +168,29 @@ def load_manifest(path: Path, checkouts: dict[str, Path] | None = None) -> list[
             contract = checkout.joinpath(*manifest_rel.parts)
             if contract.is_symlink() or not _inside(contract.resolve(), checkout):
                 raise CollectionError(f"unsafe {name} publication manifest")
-            content_commit, approved = _source_contract(contract, name, repository, checkout_commit)
+            if _git(checkout, "rev-parse", "HEAD").strip() != checkout_commit:
+                raise CollectionError(f"{name} checkout commit mismatch")
+            committed_contract = _git(
+                checkout,
+                "show",
+                f"{checkout_commit}:{manifest_rel.as_posix()}",
+                binary=True,
+            )
+            try:
+                working_contract = contract.read_bytes()
+            except OSError as exc:
+                raise CollectionError(f"cannot read {name} publication manifest") from exc
+            if working_contract != committed_contract:
+                raise CollectionError(
+                    f"{name} publication manifest differs from locked commit"
+                )
+            content_commit, approved = _source_contract(
+                contract,
+                name,
+                repository,
+                checkout_commit,
+                committed_contract,
+            )
         for index, selected in enumerate(source["files"]):
             selected = _mapping(selected, {"source", "destination"}, f"{name}.files[{index}]")
             src = _path(selected["source"], "source")
@@ -177,6 +206,8 @@ def load_manifest(path: Path, checkouts: dict[str, Path] | None = None) -> list[
                 if offer is None or offer["_destination"] != dest:
                     raise CollectionError(f"missing source approval: {src} -> {dest}")
                 entries.append(Entry(name, repository, checkout_commit, content_commit, src, dest, offer["_status"], offer["_license"]))
+            else:
+                entries.append(Entry(name, repository, checkout_commit, content_commit, src, dest, "", ""))
     return entries
 
 
