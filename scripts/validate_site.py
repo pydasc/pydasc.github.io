@@ -54,7 +54,13 @@ def validate(site: Path, css: Path) -> None:
         parser.feed(text)
         for raw in parser.references:
             parsed = urlsplit(raw)
-            if parsed.scheme or parsed.netloc or raw.startswith("#") or raw.startswith("mailto:"):
+            if parsed.scheme in {"http", "https", "mailto"}:
+                continue
+            if raw == "javascript:void(0)":
+                continue
+            if parsed.scheme or parsed.netloc:
+                raise ValueError(f"unsafe URL scheme in {html.relative_to(site)}: {raw}")
+            if raw.startswith("#"):
                 continue
             if raw.startswith("/") and not raw.startswith(SITE_BASE_PATH):
                 raise ValueError(f"reference is outside the configured site base in {html.relative_to(site)}: {raw}")

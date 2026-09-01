@@ -11,6 +11,7 @@ from collect_docs import (
     LINK_RE,
     SHA_RE,
     SPDX_RE,
+    UNSAFE_ATTRIBUTION_RE,
     CollectionError,
     load_manifest,
 )
@@ -21,7 +22,7 @@ def validate(manifest: Path, docs: Path) -> None:
     try: inventory = json.loads((docs / "generated-inventory.json").read_text())
     except (OSError, json.JSONDecodeError) as exc: raise CollectionError(f"invalid inventory: {exc}") from exc
     if not isinstance(inventory, dict) or set(inventory) != {"schema_version", "files"} or inventory["schema_version"] != 1 or not isinstance(inventory["files"], list): raise CollectionError("invalid inventory schema")
-    required_item_keys = {"destination", "sha256", "repository", "source", "commit", "status", "license"}
+    required_item_keys = {"destination", "sha256", "repository", "source", "commit", "status", "license", "attribution"}
     expected = {}
     for index, item in enumerate(inventory["files"]):
         if not isinstance(item, dict) or set(item) != required_item_keys:
@@ -54,12 +55,16 @@ def validate(manifest: Path, docs: Path) -> None:
             raise CollectionError(f"invalid inventory status: {relative}")
         if not isinstance(item["license"], str) or not SPDX_RE.fullmatch(item["license"]):
             raise CollectionError(f"invalid inventory license: {relative}")
+        if not isinstance(item["attribution"], str) or UNSAFE_ATTRIBUTION_RE.search(item["attribution"]):
+            raise CollectionError(f"invalid inventory attribution: {relative}")
+        if selection.source_name == "dasc" and not item["attribution"].strip():
+            raise CollectionError(f"missing inventory attribution: {relative}")
         path = docs / relative
         if hashlib.sha256(path.read_bytes()).hexdigest() != item["sha256"]: raise CollectionError(f"checksum mismatch: {relative}")
         if path.suffix == ".md":
             text = path.read_text(encoding="utf-8")
             source_url = f"{item['repository']}/blob/{item['commit']}/{item['source']}"
-            banner = f"<!-- Generated; source={source_url}; status={item['status']}; license={item['license']}; do not edit. -->\n"
+            banner = f"<!-- Generated; source={source_url}; status={item['status']}; license={item['license']}; attribution={item['attribution']}; do not edit. -->\n"
             if FORBIDDEN.search(text) or not text.startswith(banner): raise CollectionError(f"unsafe/missing provenance: {relative}")
             for match in LINK_RE.finditer(text):
                 raw = match.group(2); parsed = urlsplit(raw)

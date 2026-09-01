@@ -62,6 +62,7 @@ def test_source_lock_cli_skips_unapproved_candidate_without_changes(tmp_path,cap
  ("decision", "evidence", 7, "decision evidence"),
  ("attribution", "attribution", "", "attribution"),
  ("attribution", "attribution", ["invalid"], "attribution"),
+ ("attribution", "attribution", "<b>unsafe</b>", "attribution"),
 ])
 def test_dasc_decision_evidence_and_attribution_must_be_nonempty_strings(tmp_path, section, field, value, pattern):
  m,p,d=fixture(tmp_path);contract_path=d/"docs/publication-manifest.json";contract=json.loads(contract_path.read_text())
@@ -80,6 +81,27 @@ def test_broken_link_and_credential_rejected(tmp_path):
  for text,pattern in (("[bad](missing.md)\n","broken"),("github_pat_secret\n","credential")):
   root=tmp_path/pattern;root.mkdir();m,p,d=fixture(root,ptext=text)
   with pytest.raises(CollectionError,match=pattern):assemble(m,root/"out",p,d)
+
+@pytest.mark.parametrize("html", [
+ "<script>alert(1)</script>",
+ '<iframe src="https://example.invalid"></iframe>',
+ '<object data="payload"></object>',
+ '<embed src="payload">',
+ '<p onclick="alert(1)">active</p>',
+ '<a href="javascript:alert(1)">active</a>',
+])
+def test_raw_html_is_rejected_from_imported_markdown(tmp_path, html):
+ m,p,d=fixture(tmp_path,ptext=f"# P\n\n{html}\n")
+ with pytest.raises(CollectionError,match="active raw HTML is not allowed"):assemble(m,tmp_path/"out",p,d)
+
+@pytest.mark.parametrize("definition", ["[guide]: other.md", "[logo]: image.png"])
+def test_reference_style_links_are_rejected(tmp_path, definition):
+ m,p,d=fixture(tmp_path,ptext=f"# P\n\n{definition}\n")
+ with pytest.raises(CollectionError,match="reference-style links are not allowed"):assemble(m,tmp_path/"out",p,d)
+
+def test_markdown_autolink_is_not_mistaken_for_raw_html(tmp_path):
+ m,p,d=fixture(tmp_path,ptext="# P\n\n<https://example.com/>\n");out=tmp_path/"out";assemble(m,out,p,d)
+ assert "<https://example.com/>" in (out/"pydasc/index.md").read_text()
 def test_unknown_output_and_checksum_rejected(tmp_path):
  m,p,d=fixture(tmp_path);out=tmp_path/"out";assemble(m,out,p,d);(out/"dasc/extra.md").write_text("x")
  with pytest.raises(CollectionError,match="boundary"):validate(m,out)
@@ -131,6 +153,10 @@ def test_approved_image_is_relocated_and_copied(tmp_path):
  data=yaml.safe_load(m.read_text());data["sources"]["pydasc"]["checkout_commit"]=git(p,"rev-parse","HEAD");data["sources"]["pydasc"]["files"].append({"source":"plot.png","destination":"pydasc/assets/plot.png"});m.write_text(yaml.safe_dump(data));out=tmp_path/"out";assemble(m,out,p,d)
  assert "![Plot](assets/plot.png)" in (out/"pydasc/index.md").read_text();assert (out/"pydasc/assets/plot.png").read_bytes()==image
 
+def test_dasc_attribution_is_preserved_in_output_and_inventory(tmp_path):
+ m,p,d=fixture(tmp_path);out=tmp_path/"out";inventory=assemble(m,out,p,d);generated=(out/"dasc/index.md").read_text();dasc_item=next(item for item in inventory if item["destination"]=="dasc/index.md")
+ assert dasc_item["attribution"]=="Test";assert "attribution=Test" in generated;assert "**Attribution:** Test" in generated;validate(m,out)
+
 @pytest.mark.parametrize("payload", [
  "<svg><script>alert(1)</script></svg>",
  '<svg onload="alert(1)"></svg>',
@@ -163,6 +189,7 @@ def test_non_string_inventory_destination_has_controlled_error(tmp_path):
  ("commit", "not-a-commit", "inventory commit"),
  ("status", "Unknown", "inventory status"),
  ("license", "MIT OR", "inventory license"),
+ ("attribution", "<unsafe>", "inventory attribution"),
 ])
 def test_inventory_provenance_fields_are_validated(tmp_path, field, value, pattern):
  m,p,d=fixture(tmp_path);out=tmp_path/"out";assemble(m,out,p,d);inventory_path=out/"generated-inventory.json";inventory=json.loads(inventory_path.read_text());inventory["files"][0][field]=value;inventory_path.write_text(json.dumps(inventory))

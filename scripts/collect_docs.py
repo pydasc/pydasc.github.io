@@ -33,6 +33,14 @@ DOCUMENTATION_STATUSES = {
     "Superseded", "Released",
 }
 LINK_RE = re.compile(r"(!?\[[^\]]*\])\(([^)\s]+)(?:\s+['\"][^)]*['\"])?\)")
+REFERENCE_LINK_RE = re.compile(r"^\s{0,3}\[(?!\^)[^\]]+\]:", re.MULTILINE)
+ACTIVE_RAW_HTML_RE = re.compile(
+    r"<\s*/?\s*(?:script|iframe|object|embed|form|input|button|textarea|select|option|"
+    r"link|meta|base|style|svg|video|audio|source|track|canvas)\b|"
+    r"<[^>\n]*\s(?:on[a-z0-9_-]+|href|src)\s*=",
+    re.IGNORECASE,
+)
+UNSAFE_ATTRIBUTION_RE = re.compile(r"[\x00-\x1f<>\[\]]")
 FORBIDDEN = re.compile(r"(?:-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----|github_pat_[A-Za-z0-9_]+|ghp_[A-Za-z0-9]+|AKIA[0-9A-Z]{16}|/(?:Users|home)/[^\s)`]+|https?://(?:localhost|127\.0\.0\.1|[^/\s]+\.internal)(?:[/\s)]|$))")
 
 
@@ -54,6 +62,7 @@ class Entry:
     destination: PurePosixPath
     status: str
     license_id: str
+    attribution: str
 
 
 def _mapping(value: object, keys: set[str], context: str) -> dict[str, Any]:
@@ -157,13 +166,14 @@ def _source_contract(
         if name == "dasc" and (
             not isinstance(rights["attribution"], str)
             or not rights["attribution"].strip()
+            or UNSAFE_ATTRIBUTION_RE.search(rights["attribution"])
         ):
             raise CollectionError(f"invalid attribution for {source}")
         license_path = _path(rights["license_file"], "license_file")
         license_bytes = _git(path.parents[1], "show", f"{content}:{license_path.as_posix()}", binary=True)
         if not license_bytes:
             raise CollectionError(f"missing license at approved commit for {source}")
-        approved[source.as_posix()] = {**item, "_destination": destination, "_status": status["label"], "_license": rights["spdx_license"]}
+        approved[source.as_posix()] = {**item, "_destination": destination, "_status": status["label"], "_license": rights["spdx_license"], "_attribution": rights.get("attribution", "")}
     return content, approved
 
 
@@ -225,9 +235,9 @@ def load_manifest(path: Path, checkouts: dict[str, Path] | None = None) -> list[
                 offer = approved.get(src.as_posix())
                 if offer is None or offer["_destination"] != dest:
                     raise CollectionError(f"missing source approval: {src} -> {dest}")
-                entries.append(Entry(name, repository, checkout_commit, content_commit, src, dest, offer["_status"], offer["_license"]))
+                entries.append(Entry(name, repository, checkout_commit, content_commit, src, dest, offer["_status"], offer["_license"], offer["_attribution"]))
             else:
-                entries.append(Entry(name, repository, checkout_commit, content_commit, src, dest, "", ""))
+                entries.append(Entry(name, repository, checkout_commit, content_commit, src, dest, "", "", ""))
     return entries
 
 
@@ -302,19 +312,29 @@ def assemble(manifest: Path, output: Path, pydasc: Path, dasc: Path) -> list[dic
                     raise CollectionError(f"non-UTF-8 Markdown: {entry.source}") from exc
                 if FORBIDDEN.search(body):
                     raise CollectionError(f"credential-like or local content: {entry.source}")
+                if ACTIVE_RAW_HTML_RE.search(body):
+                    raise CollectionError(f"active raw HTML is not allowed: {entry.source}")
+                if REFERENCE_LINK_RE.search(body):
+                    raise CollectionError(f"reference-style links are not allowed: {entry.source}")
                 body = _rewrite(body, entry, selected, root)
                 source_url = f"{entry.repository}/blob/{entry.content_commit}/{entry.source.as_posix()}"
                 project = "PyDASC" if entry.source_name == "pydasc" else "DASC"
-                banner = f"<!-- Generated; source={source_url}; status={entry.status}; license={entry.license_id}; do not edit. -->\n\n"
+                banner = f"<!-- Generated; source={source_url}; status={entry.status}; license={entry.license_id}; attribution={entry.attribution}; do not edit. -->\n\n"
+                attribution = (
+                    f"    **Attribution:** {entry.attribution}  \n"
+                    if entry.attribution
+                    else ""
+                )
                 publication = (
                     '!!! info "Publication record"\n'
                     f"    **Project:** {project} · **Status:** {entry.status} · **License:** `{entry.license_id}`  \n"
+                    f"{attribution}"
                     f"    **Immutable revision:** [`{entry.content_commit}`]({source_url}) · "
                     f"**Source path:** `{entry.source.as_posix()}`\n\n"
                 )
                 data = (banner + publication + body.rstrip() + "\n").encode()
             destination.write_bytes(data)
-            inventory.append({"destination": entry.destination.as_posix(), "sha256": hashlib.sha256(data).hexdigest(), "repository": entry.repository, "source": entry.source.as_posix(), "commit": entry.content_commit, "status": entry.status, "license": entry.license_id})
+            inventory.append({"destination": entry.destination.as_posix(), "sha256": hashlib.sha256(data).hexdigest(), "repository": entry.repository, "source": entry.source.as_posix(), "commit": entry.content_commit, "status": entry.status, "license": entry.license_id, "attribution": entry.attribution})
         output = output.resolve()
         for name in EXPECTED:
             target = output / name

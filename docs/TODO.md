@@ -48,6 +48,8 @@ failing check.
   publication contracts, not only duplicate website destinations.
 - [x] Validate publication-decision evidence, DASC attribution, inventory
   provenance fields, and generated Markdown provenance banners.
+- [x] Reject active raw HTML, alternate reference-style links, and unsafe URL
+  schemes while preserving DASC attribution in generated release records.
 - [ ] Refactor the compact formatting in `scripts/validate_docs.py` and
   `tests/test_docs.py` without changing behavior, then adopt a consistent lint
   configuration if desired.

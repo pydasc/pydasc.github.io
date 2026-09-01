@@ -9,6 +9,7 @@ import yaml
 import sys
 sys.path.insert(0, str(Path(__file__).parents[1] / "scripts"))
 from validate_accessibility import validate as validate_accessibility
+from validate_site import validate as validate_site
 from mkdocs_hooks import on_page_content
 
 
@@ -141,3 +142,13 @@ def test_accessibility_audit_rejects_unwrapped_table(tmp_path: Path) -> None:
 
     with pytest.raises(ValueError, match="lack keyboard-scrollable regions"):
         validate_accessibility(tmp_path)
+
+
+@pytest.mark.parametrize("url", ["javascript:alert(1)", "data:text/html,active", "file:///tmp/private"])
+def test_site_validation_rejects_unsafe_url_schemes(tmp_path: Path, url: str) -> None:
+    (tmp_path / "index.html").write_text(
+        f'<html><body><a href="{url}">unsafe</a></body></html>',
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="unsafe URL scheme"):
+        validate_site(tmp_path, CSS)
