@@ -13,6 +13,7 @@ import subprocess
 import sys
 import tempfile
 from dataclasses import dataclass
+from html.parser import HTMLParser
 from pathlib import Path, PurePosixPath
 from typing import Any
 from urllib.parse import unquote, urlsplit
@@ -34,12 +35,20 @@ DOCUMENTATION_STATUSES = {
 }
 LINK_RE = re.compile(r"(!?\[[^\]]*\])\(([^)\s]+)(?:\s+['\"][^)]*['\"])?\)")
 REFERENCE_LINK_RE = re.compile(r"^\s{0,3}\[(?!\^)[^\]]+\]:", re.MULTILINE)
-ACTIVE_RAW_HTML_RE = re.compile(
-    r"<\s*/?\s*(?:script|iframe|object|embed|form|input|button|textarea|select|option|"
-    r"link|meta|base|style|svg|video|audio|source|track|canvas)\b|"
-    r"<[^>\n]*\s(?:on[a-z0-9_-]+|href|src)\s*=",
-    re.IGNORECASE,
+MARKDOWN_AUTOLINK_RE = re.compile(
+    r"<(?:https?://[^<>\s]+|[^<>\s@]+@[^<>\s@]+)>"
 )
+HTML_TAG_START_RE = re.compile(r"<\s*/?\s*[A-Za-z][A-Za-z0-9-]*")
+ACTIVE_HTML_TAGS = {
+    "a", "audio", "base", "button", "canvas", "embed", "form", "iframe",
+    "img", "input", "link", "meta", "object", "option", "script", "select",
+    "source", "style", "svg", "textarea", "track", "video",
+}
+UNSAFE_HTML_ATTRIBUTES = {
+    "action", "archive", "background", "cite", "classid", "codebase", "data",
+    "formaction", "href", "longdesc", "manifest", "ping", "poster", "profile",
+    "src", "srcset", "style", "usemap", "xlink:href",
+}
 UNSAFE_ATTRIBUTION_RE = re.compile(r"[\x00-\x1f<>\[\]]")
 FORBIDDEN = re.compile(r"(?:-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----|github_pat_[A-Za-z0-9_]+|ghp_[A-Za-z0-9]+|AKIA[0-9A-Z]{16}|/(?:Users|home)/[^\s)`]+|https?://(?:localhost|127\.0\.0\.1|[^/\s]+\.internal)(?:[/\s)]|$))")
 
@@ -50,6 +59,71 @@ class CollectionError(ValueError):
 
 class UnapprovedPublicationError(CollectionError):
     """A structurally valid source contract is not approved for publication."""
+
+
+class MarkdownHTMLGuard(HTMLParser):
+    """Reject executable or resource-loading raw HTML in imported Markdown."""
+
+    def __init__(self, source: PurePosixPath) -> None:
+        super().__init__(convert_charrefs=True)
+        self.source = source
+
+    def _reject(self) -> None:
+        raise CollectionError(f"active raw HTML is not allowed: {self.source}")
+
+    def handle_starttag(
+        self, tag: str, attrs: list[tuple[str, str | None]]
+    ) -> None:
+        raw = self.get_starttag_text() or ""
+        if MARKDOWN_AUTOLINK_RE.fullmatch(raw):
+            return
+        if tag.casefold() in ACTIVE_HTML_TAGS:
+            self._reject()
+        for name, _ in attrs:
+            folded = name.casefold()
+            if folded.startswith("on") or folded in UNSAFE_HTML_ATTRIBUTES:
+                self._reject()
+
+    def handle_startendtag(
+        self, tag: str, attrs: list[tuple[str, str | None]]
+    ) -> None:
+        self.handle_starttag(tag, attrs)
+
+    def handle_pi(self, data: str) -> None:
+        del data
+        self._reject()
+
+
+def _validate_markdown_html(text: str, source: PurePosixPath) -> None:
+    try:
+        position = 0
+        while match := HTML_TAG_START_RE.search(text, position):
+            if match.end() < len(text) and text[match.end()] not in " \t\r\n/>":
+                position = match.end()
+                continue
+            quote = ""
+            cursor = match.end()
+            while cursor < len(text):
+                character = text[cursor]
+                if quote:
+                    if character == quote:
+                        quote = ""
+                elif character in "\"'":
+                    quote = character
+                elif character == ">":
+                    MarkdownHTMLGuard(source).feed(text[match.start():cursor + 1])
+                    position = cursor + 1
+                    break
+                elif character == "<":
+                    position = cursor
+                    break
+                cursor += 1
+            else:
+                break
+    except CollectionError:
+        raise
+    except Exception as exc:
+        raise CollectionError(f"invalid raw HTML in {source}") from exc
 
 
 @dataclass(frozen=True)
@@ -312,8 +386,7 @@ def assemble(manifest: Path, output: Path, pydasc: Path, dasc: Path) -> list[dic
                     raise CollectionError(f"non-UTF-8 Markdown: {entry.source}") from exc
                 if FORBIDDEN.search(body):
                     raise CollectionError(f"credential-like or local content: {entry.source}")
-                if ACTIVE_RAW_HTML_RE.search(body):
-                    raise CollectionError(f"active raw HTML is not allowed: {entry.source}")
+                _validate_markdown_html(body, entry.source)
                 if REFERENCE_LINK_RE.search(body):
                     raise CollectionError(f"reference-style links are not allowed: {entry.source}")
                 body = _rewrite(body, entry, selected, root)

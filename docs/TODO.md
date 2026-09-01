@@ -50,6 +50,8 @@ failing check.
   provenance fields, and generated Markdown provenance banners.
 - [x] Reject active raw HTML, alternate reference-style links, and unsafe URL
   schemes while preserving DASC attribution in generated release records.
+- [x] Replace regex-only raw HTML checks with multiline-aware element and
+  attribute parsing, including style and alternate resource attributes.
 - [ ] Refactor the compact formatting in `scripts/validate_docs.py` and
   `tests/test_docs.py` without changing behavior, then adopt a consistent lint
   configuration if desired.

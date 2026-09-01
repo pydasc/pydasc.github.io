@@ -89,6 +89,10 @@ def test_broken_link_and_credential_rejected(tmp_path):
  '<embed src="payload">',
  '<p onclick="alert(1)">active</p>',
  '<a href="javascript:alert(1)">active</a>',
+ '<a\n href="javascript:alert(1)">active</a>',
+ '<div style="background-image:url(https://example.invalid/track)"></div>',
+ '<img srcset="https://example.invalid/track 1x">',
+ '<q\n cite="https://example.invalid/track">active</q>',
 ])
 def test_raw_html_is_rejected_from_imported_markdown(tmp_path, html):
  m,p,d=fixture(tmp_path,ptext=f"# P\n\n{html}\n")
@@ -102,6 +106,10 @@ def test_reference_style_links_are_rejected(tmp_path, definition):
 def test_markdown_autolink_is_not_mistaken_for_raw_html(tmp_path):
  m,p,d=fixture(tmp_path,ptext="# P\n\n<https://example.com/>\n");out=tmp_path/"out";assemble(m,out,p,d)
  assert "<https://example.com/>" in (out/"pydasc/index.md").read_text()
+
+def test_inert_angle_bracket_placeholder_is_not_mistaken_for_active_html(tmp_path):
+ m,p,d=fixture(tmp_path,ptext="# P\n\nrevision: <git-sha>\n");out=tmp_path/"out";assemble(m,out,p,d)
+ assert "<git-sha>" in (out/"pydasc/index.md").read_text()
 def test_unknown_output_and_checksum_rejected(tmp_path):
  m,p,d=fixture(tmp_path);out=tmp_path/"out";assemble(m,out,p,d);(out/"dasc/extra.md").write_text("x")
  with pytest.raises(CollectionError,match="boundary"):validate(m,out)
