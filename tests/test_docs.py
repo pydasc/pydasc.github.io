@@ -3,6 +3,7 @@ import hashlib, json, subprocess, sys
 from pathlib import Path
 import pytest, yaml
 sys.path.insert(0,str(Path(__file__).parents[1]/"scripts"))
+import collect_docs
 from collect_docs import CollectionError, assemble, load_manifest
 from validate_docs import validate
 from update_source_locks import main as update_source_locks_main
@@ -57,6 +58,53 @@ def test_broken_link_and_credential_rejected(tmp_path):
 def test_unknown_output_and_checksum_rejected(tmp_path):
  m,p,d=fixture(tmp_path);out=tmp_path/"out";assemble(m,out,p,d);(out/"dasc/extra.md").write_text("x")
  with pytest.raises(CollectionError,match="boundary"):validate(m,out)
+
+@pytest.mark.parametrize("destination", ["/pydasc/index.md", "../index.md", "pydasc/../index.md", "dasc/index.md"])
+def test_unsafe_destination_rejected(tmp_path, destination):
+ m,p,d=fixture(tmp_path);data=yaml.safe_load(m.read_text());data["sources"]["pydasc"]["files"][0]["destination"]=destination;m.write_text(yaml.safe_dump(data))
+ with pytest.raises(CollectionError):assemble(m,tmp_path/"out",p,d)
+
+@pytest.mark.parametrize("mutation", ["schema", "root_key", "source_key", "repository", "short_commit"])
+def test_manifest_schema_identity_and_unknown_keys_rejected(tmp_path, mutation):
+ m,p,d=fixture(tmp_path);data=yaml.safe_load(m.read_text())
+ if mutation=="schema":data["schema_version"]=999
+ elif mutation=="root_key":data["unexpected"]=True
+ elif mutation=="source_key":data["sources"]["pydasc"]["unexpected"]=True
+ elif mutation=="repository":data["sources"]["pydasc"]["repository"]="https://github.com/example/pydasc"
+ else:data["sources"]["pydasc"]["checkout_commit"]="abc123"
+ m.write_text(yaml.safe_dump(data))
+ with pytest.raises(CollectionError):load_manifest(m)
+
+def test_source_symlink_and_non_regular_file_rejected(tmp_path):
+ for kind in ("symlink", "directory"):
+  root=tmp_path/kind;root.mkdir();m,p,d=fixture(root);source=p/"README.md";source.unlink()
+  if kind=="symlink":
+   outside=root/"outside.md";outside.write_text("outside\n");source.symlink_to(outside)
+  else:source.mkdir()
+  with pytest.raises(CollectionError,match="unsafe or missing source"):assemble(m,root/"out",p,d)
+
+def test_oversized_source_rejected(tmp_path, monkeypatch):
+ m,p,d=fixture(tmp_path);monkeypatch.setattr(collect_docs,"MAX_FILE_BYTES",1)
+ with pytest.raises(CollectionError,match="oversized source"):assemble(m,tmp_path/"out",p,d)
+
+def test_approved_but_missing_source_is_rejected(tmp_path):
+ m,p,d=fixture(tmp_path);contract_path=p/"docs/publication-manifest.json";contract=json.loads(contract_path.read_text());contract["files"].append({"source":"missing.md","destination":"pydasc/missing.md","media_type":"text/markdown","documentation_status":{"label":"Reviewed","evidence":"test"},"redistribution":{"spdx_license":"MIT","license_file":"LICENSE"}});contract_path.write_text(json.dumps(contract));git(p,"add","docs/publication-manifest.json");git(p,"commit","-qm","approve missing file")
+ data=yaml.safe_load(m.read_text());data["sources"]["pydasc"]["checkout_commit"]=git(p,"rev-parse","HEAD");data["sources"]["pydasc"]["files"].append({"source":"missing.md","destination":"pydasc/missing.md"});m.write_text(yaml.safe_dump(data))
+ with pytest.raises(CollectionError,match="unsafe or missing source"):assemble(m,tmp_path/"out",p,d)
+
+def test_stale_generated_file_is_removed_only_inside_namespace(tmp_path):
+ m,p,d=fixture(tmp_path);out=tmp_path/"out";assemble(m,out,p,d);stale=out/"pydasc/stale.md";stale.write_text("stale\n");portal=out/"portal.md";portal.write_text("keep\n");assemble(m,out,p,d)
+ assert not stale.exists();assert portal.read_text()=="keep\n"
+
+def test_unapproved_image_is_rejected(tmp_path):
+ m,p,d=fixture(tmp_path,ptext="# P\n\n![License](LICENSE)\n")
+ with pytest.raises(CollectionError,match="image is not approved"):assemble(m,tmp_path/"out",p,d)
+
+def test_approved_image_is_relocated_and_copied(tmp_path):
+ m,p,d=fixture(tmp_path);(p/"README.md").write_text("# P\n\n![Plot](plot.png)\n");image=b"\x89PNG\r\n\x1a\nfixture";(p/"plot.png").write_bytes(image);git(p,"add","README.md","plot.png");git(p,"commit","-qm","image content");content=git(p,"rev-parse","HEAD")
+ contract_path=p/"docs/publication-manifest.json";contract=json.loads(contract_path.read_text());contract["source_commit"]=content;contract["files"].append({"source":"plot.png","destination":"pydasc/assets/plot.png","media_type":"image/png","documentation_status":{"label":"Reviewed","evidence":"test"},"redistribution":{"spdx_license":"MIT","license_file":"LICENSE"}});contract_path.write_text(json.dumps(contract));git(p,"add","docs/publication-manifest.json");git(p,"commit","-qm","approve image")
+ data=yaml.safe_load(m.read_text());data["sources"]["pydasc"]["checkout_commit"]=git(p,"rev-parse","HEAD");data["sources"]["pydasc"]["files"].append({"source":"plot.png","destination":"pydasc/assets/plot.png"});m.write_text(yaml.safe_dump(data));out=tmp_path/"out";assemble(m,out,p,d)
+ assert "![Plot](assets/plot.png)" in (out/"pydasc/index.md").read_text();assert (out/"pydasc/assets/plot.png").read_bytes()==image
 
 def test_release_keeps_api_and_examples_static():
  root=Path(__file__).parents[1];data=yaml.safe_load((root/"docs-manifest.yml").read_text());selected=[entry["source"] for source in data["sources"].values() for entry in source["files"]]

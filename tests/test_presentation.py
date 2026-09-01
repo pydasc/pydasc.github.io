@@ -27,6 +27,7 @@ def test_readthedocs_stylesheet_and_local_assets_are_configured() -> None:
     assert "navigation.tabs" not in config["theme"]["features"]
     assert "overrides/" in config["exclude_docs"].splitlines()
     assert "CODEX_TASKS_DASC_PHYSICS_DOCUMENTATION.md" in config["exclude_docs"].splitlines()
+    assert "browser_control.md" in config["exclude_docs"].splitlines()
     footer = (ROOT / "docs/overrides/partials/footer.html").read_text(encoding="utf-8")
     assert 'current_group = "dasc"' in footer
     assert "previous_group == current_group" in footer
@@ -66,6 +67,7 @@ def test_mobile_accessibility_overflow_motion_and_print_rules_exist() -> None:
     assert ":focus-visible" in css
     assert "prefers-reduced-motion: reduce" in css
     assert "@media print" in css
+    assert "size: landscape" in css
     assert ".dasc-table-scroll:focus-visible" in css
     assert "overflow-x: auto" in css
     assert "overscroll-behavior-inline: contain" in css
@@ -75,6 +77,12 @@ def test_mobile_accessibility_overflow_motion_and_print_rules_exist() -> None:
         r"\.dasc-table-scroll\s+:is\(\.md-typeset__scrollwrap,\s*"
         r"\.md-typeset__table\)\s*\{[^}]*"
         r"width:\s*max-content;[^}]*overflow:\s*visible;",
+        css,
+        re.DOTALL,
+    )
+    assert re.search(
+        r"@media print\s*\{.*\.dasc-table-scroll table:not\(\[class\]\)"
+        r"\s*\{[^}]*width:\s*100%;[^}]*table-layout:\s*fixed;",
         css,
         re.DOTALL,
     )

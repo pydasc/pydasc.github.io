@@ -10,6 +10,7 @@ exclude_docs: |
   CODEX_TASK_WEBSITE.md
   CODEX_TASK_READTHEDOCS_STYLE.md
   CODEX_TASKS_DASC_PHYSICS_DOCUMENTATION.md
+  browser_control.md
   codex_tasks.md
   architecture/
   exec-plans/

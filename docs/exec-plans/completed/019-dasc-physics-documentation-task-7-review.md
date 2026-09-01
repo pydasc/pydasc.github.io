@@ -2,17 +2,15 @@
 
 ## Review disposition
 
-**Conditional; not release-clean.** No critical model-boundary, sign, causality,
-or false-validation defect was found. DASC-REV-001 is closed after hands-on
-Chrome verification and a follow-up runtime-wrapper correction. DASC-REV-002
-now has an automated fix and requires browser/screen-reader confirmation.
-DASC-REV-003 now has an automated fix and requires browser/screen-reader
-confirmation. One medium provenance issue, one low-severity stale-workflow
-issue, and one high-priority manual-test gap remain.
+**Conditionally release-clean.** No critical model-boundary, sign, causality, or
+false-validation defect was found. DASC-REV-001 through DASC-REV-005 are fixed
+and pass their available automated and Chrome checks, including print-to-PDF.
+DASC-REV-GAP-001 remains open only for true screen-reader audio,
+clipboard-selected equation text, and forced-color inspection.
 
-This was a review-only task. No disputed physics or reported defect was silently
-repaired. No source lock, imported file, manifest, deployment setting, or
-publication status changed.
+The follow-up corrections changed authored presentation and physics pages plus
+their regression coverage. No source lock, imported file, manifest, deployment
+permission, or publication status changed.
 
 ## Severity-ranked findings
 
@@ -55,8 +53,8 @@ publication status changed.
   and 360 px layout-pressure checks cover the 200% and 400% reflow cases. The
   narrowest method table exposed a 328 px viewport over a 2733 px scroll range,
   and keyboard input changed its scroll position. Regression, strict-build,
-  site, and semantic-accessibility checks also pass. Forced-color, screen-reader,
-  and print-preview testing remain tracked by DASC-REV-GAP-001 rather than this
+  site, semantic-accessibility, and print-to-PDF checks also pass. Forced-color
+  and screen-reader testing remain tracked by DASC-REV-GAP-001 rather than this
   table-clipping defect.
 
 ### High — DASC-REV-002: MathML encodes volume elements with the exponent on the variable
@@ -87,8 +85,10 @@ publication status changed.
 - **Retest:** **Automated checks passed.** Dimensional source review, equation
   validation, strict build, and semantic-accessibility checks pass. The rebuilt
   search index contains `d3r` and `d3k` and no `dV3`, `dr3`, or `dk3`. Rendered
-  browser and screen-reader confirmation remains pending under
-  DASC-REV-GAP-001 because no browser backend was available.
+  Chrome inspection confirmed accessible equation-group labels and rendered
+  MathML text containing `dV`, `d3r`, `d3k`, and `d3r′` across all four affected
+  equations. A true screen-reader audio and clipboard-selection pass remains
+  pending under DASC-REV-GAP-001.
 
 ### Medium — DASC-REV-003: fixed-point notation is corrupted by Markdown emphasis
 
@@ -109,8 +109,10 @@ publication status changed.
 - **Retest:** **Automated checks passed.** The generated sentence is one
   paragraph, its MathML contains no `<em>` markup, and search extraction reads
   `x∗(θ) satisfies x∗=F(x∗,θ)`. Strict-build, site, physics, and semantic-
-  accessibility checks pass. Hands-on copied-text and screen-reader inspection
-  remains pending under DASC-REV-GAP-001.
+  accessibility checks pass. Live Chrome inspection confirmed the same two
+  MathML strings in the accessibility tree, with zero emphasis elements. A true
+  screen-reader audio and clipboard-selection pass remains pending under
+  DASC-REV-GAP-001.
 
 ### Medium — DASC-REV-004: validation-matrix implementation evidence is not directly traceable
 
@@ -162,14 +164,20 @@ publication status changed.
 ### High priority — DASC-REV-GAP-001: interactive accessibility review unavailable
 
 Chrome later became available and closed DASC-REV-001's mobile, keyboard, and
-high-zoom layout checks. Screen-reader math, copied equation text, forced-color
-contrast, and print-to-PDF remain **not tested**. Static HTML and CSS inspection
-cannot close those requirements. This remaining gap is especially important for
-DASC-REV-002's structured mathematical output.
+high-zoom layout checks, and exposed the corrected DASC-REV-002/003 MathML in its
+accessibility tree. A subsequent print-to-PDF review found wide-table clipping;
+the print stylesheet now uses a landscape page, fixed-width table layout, and
+print-only wrapping for long links and code. All pages of the method-selection,
+validation-matrix, and reproducibility PDFs were then visually inspected with no
+remaining clipped columns or text. Screen-reader audio, clipboard-selected
+equation text, and forced-color contrast remain **not tested** because the Chrome
+extension does not expose those operating-system surfaces. Static HTML and CSS
+inspection cannot close those requirements.
 
 - **Proposed owner:** accessibility reviewer with a supported browser and screen
   reader.
-- **Retest:** **Blocked by unavailable browser backend**, not by repository code.
+- **Retest:** **Partially blocked by unavailable operating-system accessibility
+  surfaces**, not by repository code.
 
 ## Checks that passed
 

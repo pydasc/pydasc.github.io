@@ -612,6 +612,11 @@ a,
 }
 
 @media print {
+  @page {
+    size: landscape;
+    margin: 12mm;
+  }
+
   .md-header,
   .md-sidebar,
   .md-tabs,
@@ -648,7 +653,35 @@ a,
   }
 
   .dasc-table-scroll {
+    width: 100%;
+    max-width: 100%;
     overflow: visible;
     outline: 0;
+  }
+
+  .md-typeset .dasc-table-scroll :is(.md-typeset__scrollwrap, .md-typeset__table) {
+    width: 100%;
+    max-width: 100%;
+    overflow: visible;
+  }
+
+  .md-typeset .dasc-table-scroll table:not([class]) {
+    display: table;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    table-layout: fixed;
+    font-size: 7.5pt;
+  }
+
+  .md-typeset .dasc-table-scroll table:not([class]) :is(th, td) {
+    padding: 0.3rem 0.35rem;
+    overflow-wrap: anywhere;
+  }
+
+  .md-typeset .dasc-table-scroll table:not([class]) :is(a, code) {
+    white-space: normal;
+    overflow-wrap: anywhere;
+    word-break: break-word;
   }
 }
