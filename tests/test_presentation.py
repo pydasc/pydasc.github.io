@@ -26,6 +26,7 @@ def test_readthedocs_stylesheet_and_local_assets_are_configured() -> None:
     assert "navigation.footer" in config["theme"]["features"]
     assert "navigation.tabs" not in config["theme"]["features"]
     assert "overrides/" in config["exclude_docs"].splitlines()
+    assert "TODO.md" in config["exclude_docs"].splitlines()
     assert "CODEX_TASKS_DASC_PHYSICS_DOCUMENTATION.md" in config["exclude_docs"].splitlines()
     assert "browser_control.md" in config["exclude_docs"].splitlines()
     footer = (ROOT / "docs/overrides/partials/footer.html").read_text(encoding="utf-8")
