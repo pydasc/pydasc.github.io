@@ -124,6 +124,8 @@ def _source_contract(
     if _git(path.parents[1], "rev-parse", "HEAD").strip() != checkout:
         raise CollectionError(f"{name} checkout commit mismatch")
     approved: dict[str, dict[str, Any]] = {}
+    approved_sources: set[str] = set()
+    approved_destinations: set[str] = set()
     if not isinstance(root["files"], list):
         raise CollectionError(f"{name} files must be a list")
     for index, item in enumerate(root["files"]):
@@ -132,6 +134,14 @@ def _source_contract(
         destination = _path(item["destination"], "destination")
         if destination.parts[0] != name or source.suffix.lower() not in ALLOWED or item["media_type"] != MEDIA[source.suffix.lower()]:
             raise CollectionError(f"invalid approved file: {source}")
+        folded_source = source.as_posix().casefold()
+        folded_destination = destination.as_posix().casefold()
+        if folded_source in approved_sources:
+            raise CollectionError(f"duplicate approved source: {source}")
+        if folded_destination in approved_destinations:
+            raise CollectionError(f"duplicate approved destination: {destination}")
+        approved_sources.add(folded_source)
+        approved_destinations.add(folded_destination)
         status = _mapping(item["documentation_status"], {"label", "evidence"}, "status")
         if status["label"] not in DOCUMENTATION_STATUSES or not isinstance(status["evidence"], str) or not status["evidence"].strip():
             raise CollectionError(f"invalid status for {source}")

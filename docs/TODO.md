@@ -4,21 +4,21 @@ This file tracks repository work that is not intended for publication. Complete
 items in priority order; do not weaken the publication boundary to bypass a
 failing check.
 
-## P0 — Review the pending publication-security changes
+## P0 — Reviewed publication-security changes
 
-- [ ] Review the local `scripts/collect_docs.py` changes that load each upstream
+- [x] Review the committed `scripts/collect_docs.py` changes that load each upstream
   publication contract from its immutable locked commit and reject a differing
   worktree copy.
-- [ ] Confirm that SVG remains excluded from imported publication formats until
+- [x] Confirm that SVG remains excluded from imported publication formats until
   a strict, reviewed sanitizer and adversarial test suite exist.
-- [ ] Review the local `scripts/validate_docs.py` changes that compare generated
+- [x] Review the committed `scripts/validate_docs.py` changes that compare generated
   inventory destinations and provenance with `docs-manifest.yml`.
-- [ ] Review the new regression tests for dirty contracts, active SVG content,
+- [x] Review the new regression tests for dirty contracts, active SVG content,
   duplicate website destinations, and manifest/inventory disagreement.
 
 ## P1 — Complete release verification
 
-- [ ] Run the complete exact-checkout acceptance sequence:
+- [x] Run the complete exact-checkout acceptance sequence:
 
   ```bash
   python -m pytest
@@ -33,10 +33,10 @@ failing check.
   git diff --check
   ```
 
-- [ ] Verify deterministic assembly by snapshotting `docs/pydasc/`,
+- [x] Verify deterministic assembly by snapshotting `docs/pydasc/`,
   `docs/dasc/`, and `docs/generated-inventory.json`, collecting again, and
   confirming no difference.
-- [ ] Inspect the final diff and ensure it contains only approved repository
+- [x] Inspect the final diff and ensure it contains only approved repository
   changes. Do not include `site/`, caches, temporary checkouts, credentials, or
   local browser guidance.
 - [ ] After an authorized commit and push, confirm that both Documentation
@@ -44,7 +44,7 @@ failing check.
 
 ## P2 — Strengthen maintainability
 
-- [ ] Add explicit tests rejecting duplicate source entries in upstream
+- [x] Add explicit tests rejecting duplicate source and destination entries in upstream
   publication contracts, not only duplicate website destinations.
 - [ ] Refactor the compact formatting in `scripts/validate_docs.py` and
   `tests/test_docs.py` without changing behavior, then adopt a consistent lint

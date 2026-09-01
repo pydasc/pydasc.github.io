@@ -34,6 +34,14 @@ def test_dirty_publication_manifest_rejected(tmp_path):
  m,p,d=fixture(tmp_path);contract_path=p/"docs/publication-manifest.json";contract=json.loads(contract_path.read_text());contract["files"][0]["documentation_status"]["evidence"]="uncommitted approval";contract_path.write_text(json.dumps(contract))
  with pytest.raises(CollectionError,match="differs from locked commit"):assemble(m,tmp_path/"out",p,d)
 
+@pytest.mark.parametrize("collision", ["source", "destination"])
+def test_duplicate_upstream_contract_paths_rejected_case_insensitively(tmp_path, collision):
+ m,p,d=fixture(tmp_path);contract_path=p/"docs/publication-manifest.json";contract=json.loads(contract_path.read_text());duplicate=json.loads(json.dumps(contract["files"][0]))
+ if collision=="source":duplicate["source"]="readme.MD";duplicate["destination"]="pydasc/other.md"
+ else:duplicate["source"]="OTHER.md";duplicate["destination"]="pydasc/INDEX.md"
+ contract["files"].append(duplicate);contract_path.write_text(json.dumps(contract));git(p,"add","docs/publication-manifest.json");git(p,"commit","-qm","duplicate contract path");data=yaml.safe_load(m.read_text());data["sources"]["pydasc"]["checkout_commit"]=git(p,"rev-parse","HEAD");m.write_text(yaml.safe_dump(data))
+ with pytest.raises(CollectionError,match=f"duplicate approved {collision}"):assemble(m,tmp_path/"out",p,d)
+
 def test_source_lock_update_validates_candidate_and_changes_only_commit(tmp_path):
  m,p,d=fixture(tmp_path);before=yaml.safe_load(m.read_text());(p/"CHANGELOG.md").write_text("candidate\n");git(p,"add","CHANGELOG.md");git(p,"commit","-qm","candidate")
  changes=update_source_locks(m,{"pydasc":p,"dasc":d});after=yaml.safe_load(m.read_text())
@@ -128,6 +136,15 @@ def test_inventory_must_match_manifest_selection_and_provenance(tmp_path):
  with pytest.raises(CollectionError,match="provenance differs from manifest"):validate(m,out)
  assemble(m,out,p,d);inventory=json.loads(inventory_path.read_text());item=next(entry for entry in inventory["files"] if entry["destination"]=="pydasc/index.md");(out/"pydasc/index.md").rename(out/"pydasc/rogue.md");item["destination"]="pydasc/rogue.md";inventory_path.write_text(json.dumps(inventory))
  with pytest.raises(CollectionError,match="inventory differs from manifest"):validate(m,out)
+
+@pytest.mark.parametrize("bad_item", [None, [], {}, {"destination":"pydasc/index.md"}])
+def test_malformed_inventory_item_has_controlled_error(tmp_path, bad_item):
+ m,p,d=fixture(tmp_path);out=tmp_path/"out";assemble(m,out,p,d);inventory_path=out/"generated-inventory.json";inventory=json.loads(inventory_path.read_text());inventory["files"][0]=bad_item;inventory_path.write_text(json.dumps(inventory))
+ with pytest.raises(CollectionError,match="invalid inventory item"):validate(m,out)
+
+def test_non_string_inventory_destination_has_controlled_error(tmp_path):
+ m,p,d=fixture(tmp_path);out=tmp_path/"out";assemble(m,out,p,d);inventory_path=out/"generated-inventory.json";inventory=json.loads(inventory_path.read_text());inventory["files"][0]["destination"]=[];inventory_path.write_text(json.dumps(inventory))
+ with pytest.raises(CollectionError,match="invalid inventory destination"):validate(m,out)
 
 def test_release_keeps_api_and_examples_static():
  root=Path(__file__).parents[1];data=yaml.safe_load((root/"docs-manifest.yml").read_text());selected=[entry["source"] for source in data["sources"].values() for entry in source["files"]]

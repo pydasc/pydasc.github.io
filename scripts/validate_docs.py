@@ -11,8 +11,16 @@ def validate(manifest: Path, docs: Path) -> None:
     docs = docs.resolve()
     try: inventory = json.loads((docs / "generated-inventory.json").read_text())
     except (OSError, json.JSONDecodeError) as exc: raise CollectionError(f"invalid inventory: {exc}") from exc
-    if set(inventory) != {"schema_version", "files"} or inventory["schema_version"] != 1 or not isinstance(inventory["files"], list): raise CollectionError("invalid inventory schema")
-    expected = {item["destination"]: item for item in inventory["files"]}
+    if not isinstance(inventory, dict) or set(inventory) != {"schema_version", "files"} or inventory["schema_version"] != 1 or not isinstance(inventory["files"], list): raise CollectionError("invalid inventory schema")
+    required_item_keys = {"destination", "sha256", "repository", "source", "commit", "status", "license"}
+    expected = {}
+    for index, item in enumerate(inventory["files"]):
+        if not isinstance(item, dict) or set(item) != required_item_keys:
+            raise CollectionError(f"invalid inventory item at index {index}")
+        destination = item["destination"]
+        if not isinstance(destination, str):
+            raise CollectionError(f"invalid inventory destination at index {index}")
+        expected[destination] = item
     if len(expected) != len(inventory["files"]): raise CollectionError("duplicate inventory destination")
     if set(expected) != set(selected):
         raise CollectionError(
@@ -28,7 +36,6 @@ def validate(manifest: Path, docs: Path) -> None:
             if path.is_file(): actual.add(path.relative_to(docs).as_posix())
     if actual != set(expected): raise CollectionError(f"output boundary differs: missing={sorted(set(expected)-actual)}, unexpected={sorted(actual-set(expected))}")
     for relative, item in expected.items():
-        if set(item) != {"destination", "sha256", "repository", "source", "commit", "status", "license"}: raise CollectionError(f"invalid inventory item: {relative}")
         selection = selected[relative]
         if item["repository"] != selection.repository or item["source"] != selection.source.as_posix():
             raise CollectionError(f"inventory provenance differs from manifest: {relative}")
