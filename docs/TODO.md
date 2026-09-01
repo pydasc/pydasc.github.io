@@ -46,6 +46,8 @@ failing check.
 
 - [x] Add explicit tests rejecting duplicate source and destination entries in upstream
   publication contracts, not only duplicate website destinations.
+- [x] Validate publication-decision evidence, DASC attribution, inventory
+  provenance fields, and generated Markdown provenance banners.
 - [ ] Refactor the compact formatting in `scripts/validate_docs.py` and
   `tests/test_docs.py` without changing behavior, then adopt a consistent lint
   configuration if desired.

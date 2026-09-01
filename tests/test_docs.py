@@ -56,6 +56,19 @@ def test_source_lock_cli_skips_unapproved_candidate_without_changes(tmp_path,cap
  assert rejected==1;assert m.read_bytes()==before;assert "error: DASC publication decision is not approved" in capsys.readouterr().err
  result=update_source_locks_main(["--skip-unapproved","--manifest",str(m),"--pydasc",str(p),"--dasc",str(d)])
  assert result==0;assert m.read_bytes()==before;assert "skip: DASC publication decision is not approved" in capsys.readouterr().out
+
+@pytest.mark.parametrize(("section", "field", "value", "pattern"), [
+ ("decision", "reason", "", "decision evidence"),
+ ("decision", "evidence", 7, "decision evidence"),
+ ("attribution", "attribution", "", "attribution"),
+ ("attribution", "attribution", ["invalid"], "attribution"),
+])
+def test_dasc_decision_evidence_and_attribution_must_be_nonempty_strings(tmp_path, section, field, value, pattern):
+ m,p,d=fixture(tmp_path);contract_path=d/"docs/publication-manifest.json";contract=json.loads(contract_path.read_text())
+ if section=="decision":contract["publication_decision"][field]=value
+ else:contract["files"][0]["redistribution"][field]=value
+ contract_path.write_text(json.dumps(contract));git(d,"add","docs/publication-manifest.json");git(d,"commit","-qm","invalid publication metadata");data=yaml.safe_load(m.read_text());data["sources"]["dasc"]["checkout_commit"]=git(d,"rev-parse","HEAD");m.write_text(yaml.safe_dump(data))
+ with pytest.raises(CollectionError,match=pattern):assemble(m,tmp_path/"out",p,d)
 @pytest.mark.parametrize("value",["/README.md","../README.md","*.md","secret.env"])
 def test_unsafe_selection_rejected(tmp_path,value):
  m,p,d=fixture(tmp_path);data=yaml.safe_load(m.read_text());data["sources"]["pydasc"]["files"][0]["source"]=value;m.write_text(yaml.safe_dump(data));
@@ -145,6 +158,19 @@ def test_malformed_inventory_item_has_controlled_error(tmp_path, bad_item):
 def test_non_string_inventory_destination_has_controlled_error(tmp_path):
  m,p,d=fixture(tmp_path);out=tmp_path/"out";assemble(m,out,p,d);inventory_path=out/"generated-inventory.json";inventory=json.loads(inventory_path.read_text());inventory["files"][0]["destination"]=[];inventory_path.write_text(json.dumps(inventory))
  with pytest.raises(CollectionError,match="invalid inventory destination"):validate(m,out)
+
+@pytest.mark.parametrize(("field", "value", "pattern"), [
+ ("commit", "not-a-commit", "inventory commit"),
+ ("status", "Unknown", "inventory status"),
+ ("license", "MIT OR", "inventory license"),
+])
+def test_inventory_provenance_fields_are_validated(tmp_path, field, value, pattern):
+ m,p,d=fixture(tmp_path);out=tmp_path/"out";assemble(m,out,p,d);inventory_path=out/"generated-inventory.json";inventory=json.loads(inventory_path.read_text());inventory["files"][0][field]=value;inventory_path.write_text(json.dumps(inventory))
+ with pytest.raises(CollectionError,match=pattern):validate(m,out)
+
+def test_markdown_banner_must_match_inventory_provenance(tmp_path):
+ m,p,d=fixture(tmp_path);out=tmp_path/"out";assemble(m,out,p,d);inventory_path=out/"generated-inventory.json";inventory=json.loads(inventory_path.read_text());inventory["files"][0]["commit"]="a"*40;inventory_path.write_text(json.dumps(inventory))
+ with pytest.raises(CollectionError,match="unsafe/missing provenance"):validate(m,out)
 
 def test_release_keeps_api_and_examples_static():
  root=Path(__file__).parents[1];data=yaml.safe_load((root/"docs-manifest.yml").read_text());selected=[entry["source"] for source in data["sources"].values() for entry in source["files"]]

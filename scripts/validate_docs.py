@@ -4,7 +4,16 @@ from __future__ import annotations
 import argparse, hashlib, json, sys
 from pathlib import Path
 from urllib.parse import unquote, urlsplit
-from collect_docs import CollectionError, EXPECTED, FORBIDDEN, LINK_RE, load_manifest
+from collect_docs import (
+    DOCUMENTATION_STATUSES,
+    EXPECTED,
+    FORBIDDEN,
+    LINK_RE,
+    SHA_RE,
+    SPDX_RE,
+    CollectionError,
+    load_manifest,
+)
 
 def validate(manifest: Path, docs: Path) -> None:
     selected = {entry.destination.as_posix(): entry for entry in load_manifest(manifest)}
@@ -39,11 +48,19 @@ def validate(manifest: Path, docs: Path) -> None:
         selection = selected[relative]
         if item["repository"] != selection.repository or item["source"] != selection.source.as_posix():
             raise CollectionError(f"inventory provenance differs from manifest: {relative}")
+        if not isinstance(item["commit"], str) or not SHA_RE.fullmatch(item["commit"]):
+            raise CollectionError(f"invalid inventory commit: {relative}")
+        if not isinstance(item["status"], str) or item["status"] not in DOCUMENTATION_STATUSES:
+            raise CollectionError(f"invalid inventory status: {relative}")
+        if not isinstance(item["license"], str) or not SPDX_RE.fullmatch(item["license"]):
+            raise CollectionError(f"invalid inventory license: {relative}")
         path = docs / relative
         if hashlib.sha256(path.read_bytes()).hexdigest() != item["sha256"]: raise CollectionError(f"checksum mismatch: {relative}")
         if path.suffix == ".md":
             text = path.read_text(encoding="utf-8")
-            if FORBIDDEN.search(text) or not text.startswith("<!-- Generated; source="): raise CollectionError(f"unsafe/missing provenance: {relative}")
+            source_url = f"{item['repository']}/blob/{item['commit']}/{item['source']}"
+            banner = f"<!-- Generated; source={source_url}; status={item['status']}; license={item['license']}; do not edit. -->\n"
+            if FORBIDDEN.search(text) or not text.startswith(banner): raise CollectionError(f"unsafe/missing provenance: {relative}")
             for match in LINK_RE.finditer(text):
                 raw = match.group(2); parsed = urlsplit(raw)
                 if parsed.scheme in {"http", "https", "mailto"} or raw.startswith("#"): continue

@@ -121,6 +121,11 @@ def _source_contract(
         decision = _mapping(root["publication_decision"], {"state", "reason", "evidence"}, "dasc decision")
         if decision["state"] != "approved":
             raise UnapprovedPublicationError("DASC publication decision is not approved")
+        if any(
+            not isinstance(decision[field], str) or not decision[field].strip()
+            for field in ("reason", "evidence")
+        ):
+            raise CollectionError("invalid DASC publication decision evidence")
     if _git(path.parents[1], "rev-parse", "HEAD").strip() != checkout:
         raise CollectionError(f"{name} checkout commit mismatch")
     approved: dict[str, dict[str, Any]] = {}
@@ -149,6 +154,11 @@ def _source_contract(
         rights = _mapping(item["redistribution"], rights_keys, "redistribution")
         if not isinstance(rights["spdx_license"], str) or not SPDX_RE.fullmatch(rights["spdx_license"]):
             raise CollectionError(f"invalid SPDX license for {source}")
+        if name == "dasc" and (
+            not isinstance(rights["attribution"], str)
+            or not rights["attribution"].strip()
+        ):
+            raise CollectionError(f"invalid attribution for {source}")
         license_path = _path(rights["license_file"], "license_file")
         license_bytes = _git(path.parents[1], "show", f"{content}:{license_path.as_posix()}", binary=True)
         if not license_bytes:
