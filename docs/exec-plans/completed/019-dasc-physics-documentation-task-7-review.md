@@ -5,8 +5,8 @@
 **Conditionally release-clean.** No critical model-boundary, sign, causality, or
 false-validation defect was found. DASC-REV-001 through DASC-REV-005 are fixed
 and pass their available automated and Chrome checks, including print-to-PDF.
-DASC-REV-GAP-001 remains open only for true screen-reader audio,
-clipboard-selected equation text, and forced-color inspection.
+DASC-REV-GAP-001 remains open only for true screen-reader audio and forced-color
+inspection.
 
 The follow-up corrections changed authored presentation and physics pages plus
 their regression coverage. No source lock, imported file, manifest, deployment
@@ -87,8 +87,9 @@ permission, or publication status changed.
   search index contains `d3r` and `d3k` and no `dV3`, `dr3`, or `dk3`. Rendered
   Chrome inspection confirmed accessible equation-group labels and rendered
   MathML text containing `dV`, `d3r`, `d3k`, and `d3r′` across all four affected
-  equations. A true screen-reader audio and clipboard-selection pass remains
-  pending under DASC-REV-GAP-001.
+  equations. A manual plain-text paste confirmed that `dV`, `d3r`, `d3k`, and
+  both `d3r′` measures retain the intended symbol order. A true screen-reader
+  audio pass remains pending under DASC-REV-GAP-001.
 
 ### Medium — DASC-REV-003: fixed-point notation is corrupted by Markdown emphasis
 
@@ -110,9 +111,10 @@ permission, or publication status changed.
   paragraph, its MathML contains no `<em>` markup, and search extraction reads
   `x∗(θ) satisfies x∗=F(x∗,θ)`. Strict-build, site, physics, and semantic-
   accessibility checks pass. Live Chrome inspection confirmed the same two
-  MathML strings in the accessibility tree, with zero emphasis elements. A true
-  screen-reader audio and clipboard-selection pass remains pending under
-  DASC-REV-GAP-001.
+  MathML strings in the accessibility tree, with zero emphasis elements. A
+  manual plain-text paste retained all three mathematical asterisks in
+  `x∗(θ) satisfies x∗=F(x∗,θ)`. A true screen-reader audio pass remains pending
+  under DASC-REV-GAP-001.
 
 ### Medium — DASC-REV-004: validation-matrix implementation evidence is not directly traceable
 
@@ -169,8 +171,9 @@ accessibility tree. A subsequent print-to-PDF review found wide-table clipping;
 the print stylesheet now uses a landscape page, fixed-width table layout, and
 print-only wrapping for long links and code. All pages of the method-selection,
 validation-matrix, and reproducibility PDFs were then visually inspected with no
-remaining clipped columns or text. Screen-reader audio, clipboard-selected
-equation text, and forced-color contrast remain **not tested** because the Chrome
+remaining clipped columns or text. A manual clipboard pass preserved the symbol
+order of all four corrected measures and the fixed-point expression. Screen-
+reader audio and forced-color contrast remain **not tested** because the Chrome
 extension does not expose those operating-system surfaces. Static HTML and CSS
 inspection cannot close those requirements.
 
@@ -240,7 +243,7 @@ inspection cannot close those requirements.
 
 ## Release recommendation
 
-Complete the hands-on retests of the DASC-REV-001 through DASC-REV-003 fixes and
-run the remaining interactive review in DASC-REV-GAP-001 before calling the
-DASC physics section release-clean. Numerical physics claims remain artifact-
-pending exactly as stated in the validation matrix.
+Complete the screen-reader audio and forced-color portions of
+DASC-REV-GAP-001 before calling the DASC physics section unconditionally
+release-clean. Numerical physics claims remain artifact-pending exactly as
+stated in the validation matrix.
