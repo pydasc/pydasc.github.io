@@ -35,8 +35,9 @@ def test_docs_check_pins_actions_and_reproduces_local_build() -> None:
     for command in (
         "persist-credentials: false",
         "actions/create-github-app-token@",
-        "secrets.DASC_DOCS_APP_ID",
+        "secrets.DASC_DOCS_APP_CLIENT_ID",
         "secrets.DASC_DOCS_APP_PRIVATE_KEY",
+        "permission-contents: read",
         "steps.source-token.outputs.token",
         "http.https://github.com/.extraheader=AUTHORIZATION: basic $auth_header",
         "load_manifest(Path(\"docs-manifest.yml\"))",
@@ -93,8 +94,9 @@ def test_pages_artifact_is_validated_scanned_and_sha_pinned() -> None:
     assert positions == sorted(positions)
     assert "persist-credentials: false" in text
     assert "actions/create-github-app-token@" in text
-    assert "secrets.DASC_DOCS_APP_ID" in text
+    assert "secrets.DASC_DOCS_APP_CLIENT_ID" in text
     assert "secrets.DASC_DOCS_APP_PRIVATE_KEY" in text
+    assert "permission-contents: read" in text
     assert "steps.source-token.outputs.token" in text
     assert "http.https://github.com/.extraheader=AUTHORIZATION: basic $auth_header" in text
     assert 'fetch --quiet --no-tags --depth=1 origin "$content_commit"' in text
@@ -117,9 +119,15 @@ def test_source_update_workflow_proposes_validated_review_only_prs() -> None:
     assert set(workflow["on"]) == {"schedule", "workflow_dispatch"}
     assert workflow["permissions"] == {"contents": "write", "pull-requests": "write"}
     assert uses_lines and all(ACTION_PIN.match(line) for line in uses_lines)
+    assert "actions/create-github-app-token@" in text
+    assert "secrets.DASC_DOCS_APP_CLIENT_ID" in text
+    assert "secrets.DASC_DOCS_APP_PRIVATE_KEY" in text
+    assert "steps.source-token.outputs.token" in text
+    assert "permission-contents: read" in text
+    assert "http.https://github.com/.extraheader=AUTHORIZATION: basic $auth_header" in text
     assert "scripts/update_source_locks.py" in text
     assert "--skip-unapproved" in text
-    assert "credential.helper= clone" in text
+    assert "credential.helper=" in text
     assert 'fetch --quiet --no-tags --depth=1 origin "$content_commit"' in text
     assert "python -m pytest" in text
     assert "mkdocs build --strict" in text

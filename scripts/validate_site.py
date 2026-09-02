@@ -62,12 +62,16 @@ def validate(site: Path, css: Path) -> None:
                 raise ValueError(f"unsafe URL scheme in {html.relative_to(site)}: {raw}")
             if raw.startswith("#"):
                 continue
-            if raw.startswith("/") and not raw.startswith(SITE_BASE_PATH):
-                raise ValueError(f"reference is outside the configured site base in {html.relative_to(site)}: {raw}")
-            relative = unquote(parsed.path.removeprefix(SITE_BASE_PATH)) if raw.startswith(SITE_BASE_PATH) else unquote(parsed.path)
+            if raw.startswith("/"):
+                if not raw.startswith(SITE_BASE_PATH):
+                    raise ValueError(f"reference is outside the configured site base in {html.relative_to(site)}: {raw}")
+                relative = unquote(parsed.path.removeprefix(SITE_BASE_PATH))
+                target = (site / relative).resolve()
+            else:
+                relative = unquote(parsed.path)
+                target = (html.parent / relative).resolve()
             if not relative:
                 continue
-            target = (html.parent / relative).resolve()
             if not target.is_relative_to(site):
                 raise ValueError(f"reference escapes site: {html.relative_to(site)}: {raw}")
             candidates = (target, target / "index.html") if target.is_dir() or not target.suffix else (target,)

@@ -58,12 +58,13 @@ jobs:
         id: source-token
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
-          app-id: ${{ secrets.DASC_DOCS_APP_ID }}
+          client-id: ${{ secrets.DASC_DOCS_APP_CLIENT_ID }}
           private-key: ${{ secrets.DASC_DOCS_APP_PRIVATE_KEY }}
           owner: pydasc
           repositories: |
             pydasc
             dasc
+          permission-contents: read
 
       - name: Read reviewed source locks
         id: sources

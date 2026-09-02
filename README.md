@@ -236,8 +236,9 @@ deploys an artifact.
 - upload `site/` with the official Pages artifact action;
 - deploy with the official Pages deployment action in the `github-pages` environment.
 
-`update-source-locks.yml` runs weekly and by manual dispatch. It anonymously
-clones each fixed upstream repository, fetches the exact content commit declared
+`update-source-locks.yml` runs weekly and by manual dispatch. It uses the same
+short-lived, read-only GitHub App token as the check and deployment workflows to
+clone each fixed private upstream repository and fetch the exact content commit declared
 by its candidate publication contract, and validates the complete candidate
 before changing only `checkout_commit` values in `docs-manifest.yml`. A changed
 candidate must pass tests, deterministic assembly, publication validation, the

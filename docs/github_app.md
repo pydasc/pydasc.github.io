@@ -1,7 +1,7 @@
 # GitHub App for private source access
 
 Use one narrowly scoped GitHub App to let the public website repository read
-the two private source repositories named by `sources.lock.yml`:
+the two private source repositories named by `docs-manifest.yml`:
 
 - `pydasc/dasc`
 - `pydasc/pydasc`
@@ -10,7 +10,7 @@ Store the App credentials in `pydasc/pydasc.github.io`. The App replaces
 source deploy keys; it does not grant deployment or website-repository write
 access.
 
-This procedure applies while `sources.lock.yml` names the repositories above.
+This procedure applies while `docs-manifest.yml` names the repositories above.
 If an authoritative source moves, review and update the lock separately before
 changing the App installation. Repository presence or copying alone does not
 authorize a source-location change.
@@ -34,13 +34,13 @@ While signed in as an owner of the `pydasc` organization:
 Create the App under the `pydasc` organization, not a personal account, so it
 can be installed on both locked organization repositories.
 
-## 2. Record the App ID
+## 2. Record the Client ID
 
-On the App's **General** page, record the numeric **App ID**, not the Client ID.
+On the App's **General** page, record the **Client ID**, not the numeric App ID.
 It will be stored as this Actions secret:
 
 ```text
-DASC_DOCS_APP_ID
+DASC_DOCS_APP_CLIENT_ID
 ```
 
 ## 3. Generate the private key
@@ -81,7 +81,7 @@ Create these repository secrets:
 
 | Name | Value |
 | --- | --- |
-| `DASC_DOCS_APP_ID` | Numeric GitHub App ID |
+| `DASC_DOCS_APP_CLIENT_ID` | GitHub App Client ID |
 | `DASC_DOCS_APP_PRIVATE_KEY` | Complete contents of the downloaded `.pem` file |
 
 Use repository secrets rather than `github-pages` environment secrets because
@@ -97,7 +97,7 @@ gh secret list --repo pydasc/pydasc.github.io
 The output should list:
 
 ```text
-DASC_DOCS_APP_ID
+DASC_DOCS_APP_CLIENT_ID
 DASC_DOCS_APP_PRIVATE_KEY
 ```
 
@@ -107,18 +107,18 @@ Adding the secrets alone is not sufficient. The current workflows pass
 `DASC_SOURCE_DEPLOY_KEY` and `PYDASC_SOURCE_DEPLOY_KEY` to the `ssh-key`
 input of `actions/checkout`. Update each source-reading job in:
 
-- `.github/workflows/site-check.yml`
-- `.github/workflows/pages.yml`
-- `.github/workflows/source-update.yml`
+- `.github/workflows/docs-check.yml`
+- `.github/workflows/deploy-pages.yml`
+- `.github/workflows/update-source-locks.yml`
 
 Before the source checkout steps, mint one short-lived installation token:
 
 ```yaml
 - name: Create source-read installation token
   id: source_token
-  uses: actions/create-github-app-token@v2
+  uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
   with:
-    app-id: ${{ secrets.DASC_DOCS_APP_ID }}
+    client-id: ${{ secrets.DASC_DOCS_APP_CLIENT_ID }}
     private-key: ${{ secrets.DASC_DOCS_APP_PRIVATE_KEY }}
     owner: pydasc
     repositories: |

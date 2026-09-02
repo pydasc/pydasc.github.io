@@ -31,6 +31,18 @@ jobs:
       - name: Install pinned documentation dependencies
         run: python -m pip install --requirement requirements-docs.txt
 
+      - name: Create read-only token for private documentation sources
+        id: source-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ secrets.DASC_DOCS_APP_CLIENT_ID }}
+          private-key: ${{ secrets.DASC_DOCS_APP_PRIVATE_KEY }}
+          owner: pydasc
+          repositories: |
+            pydasc
+            dasc
+          permission-contents: read
+
       - name: Stop when an update proposal is already open
         id: existing
         env:
@@ -45,15 +57,22 @@ jobs:
             echo "skip=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Fetch candidate public source heads
+      - name: Fetch candidate private source heads
         if: steps.existing.outputs.skip != 'true'
         shell: bash
+        env:
+          SOURCE_TOKEN: ${{ steps.source-token.outputs.token }}
         run: |
           set -euo pipefail
+          auth_header="$(printf 'x-access-token:%s' "$SOURCE_TOKEN" | base64 | tr -d '\n')"
           mkdir -p .source-checkouts
-          git -c credential.helper= clone --quiet --depth=1 \
+          git -c credential.helper= -c core.hooksPath=/dev/null \
+            -c "http.https://github.com/.extraheader=AUTHORIZATION: basic $auth_header" \
+            clone --quiet --depth=1 \
             https://github.com/pydasc/pydasc .source-checkouts/pydasc
-          git -c credential.helper= clone --quiet --depth=1 \
+          git -c credential.helper= -c core.hooksPath=/dev/null \
+            -c "http.https://github.com/.extraheader=AUTHORIZATION: basic $auth_header" \
+            clone --quiet --depth=1 \
             https://github.com/pydasc/dasc .source-checkouts/dasc
           for name in pydasc dasc; do
             content_commit="$(python - ".source-checkouts/$name/docs/publication-manifest.json" <<'PY'
@@ -69,6 +88,8 @@ jobs:
           PY
             )"
             git -C ".source-checkouts/$name" -c credential.helper= \
+              -c core.hooksPath=/dev/null \
+              -c "http.https://github.com/.extraheader=AUTHORIZATION: basic $auth_header" \
               fetch --quiet --no-tags --depth=1 origin "$content_commit"
           done
 

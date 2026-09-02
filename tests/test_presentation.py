@@ -152,3 +152,25 @@ def test_site_validation_rejects_unsafe_url_schemes(tmp_path: Path, url: str) ->
     )
     with pytest.raises(ValueError, match="unsafe URL scheme"):
         validate_site(tmp_path, CSS)
+
+
+def test_site_validation_resolves_root_relative_links_from_site_root(tmp_path: Path) -> None:
+    nested = tmp_path / "guide"
+    nested.mkdir()
+    (tmp_path / "assets").mkdir()
+    (tmp_path / "assets/main.css").write_text("body {}", encoding="utf-8")
+    (tmp_path / "index.html").write_text(
+        '<html><head><link href="stylesheets/readthedocs.css"></head><body>'
+        '<button data-dasc-drawer-control aria-controls="__drawer" '
+        'aria-label="Open documentation navigation"></button>'
+        '<a href="guide/">Guide</a></body></html>',
+        encoding="utf-8",
+    )
+    (tmp_path / "stylesheets").mkdir()
+    (tmp_path / "stylesheets/readthedocs.css").write_text("", encoding="utf-8")
+    (nested / "index.html").write_text(
+        '<html><head><link href="/assets/main.css"></head><body></body></html>',
+        encoding="utf-8",
+    )
+
+    validate_site(tmp_path, CSS)
