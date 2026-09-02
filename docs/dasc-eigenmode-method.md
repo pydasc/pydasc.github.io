@@ -19,6 +19,6 @@ solved by the [TGF method](dasc-tgf-method.md).
     hold; it is not the primary aperture model.
 
 The derivation follows the reviewed DASC
-[finite-cavity source](https://github.com/chongshikpark/dasc/blob/94033eae4d8eac81f4c42c41f6cfba69e1cd2a25/docs/space_charge_fields_with_aperture_study.tex).
+[finite-cavity source](https://github.com/pydasc/dasc/blob/94033eae4d8eac81f4c42c41f6cfba69e1cd2a25/docs/space_charge_fields_with_aperture_study.tex).
 The earlier small-hole manuscript and incremental supplements are legacy
 sources, not the controlling formulation.

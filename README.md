@@ -4,8 +4,8 @@ This repository builds the public documentation portal for DASC and PyDASC with 
 
 - Website repository: `https://github.com/pydasc/pydasc.github.io`
 - Published website: `https://pydasc.github.io/`
-- PyDASC source: `https://github.com/chongshikpark/pydasc`
-- DASC source: `https://github.com/chongshikpark/dasc`
+- PyDASC source: `https://github.com/pydasc/pydasc`
+- DASC source: `https://github.com/pydasc/dasc`
 
 ## Design
 
@@ -60,14 +60,14 @@ publication contract that approves the selected files.
 schema_version: 2
 sources:
   pydasc:
-    repository: https://github.com/chongshikpark/pydasc
+    repository: https://github.com/pydasc/pydasc
     checkout_commit: "<40-character commit SHA>"
     publication_manifest: docs/publication-manifest.json
     files:
       - source: README.md
         destination: pydasc/index.md
   dasc:
-    repository: https://github.com/chongshikpark/dasc
+    repository: https://github.com/pydasc/dasc
     checkout_commit: "<40-character commit SHA>"
     publication_manifest: docs/publication-manifest.json
     files:
@@ -203,7 +203,7 @@ requirements that a future, explicitly reviewed approval must satisfy.
 
 ## Updating imported documentation
 
-1. Choose a reviewed commit from `chongshikpark/pydasc` or `chongshikpark/dasc`.
+1. Choose a reviewed commit from `pydasc/pydasc` or `pydasc/dasc`.
 2. Audit each proposed source file for public suitability and licensing.
 3. Update the source `checkout_commit`, `publication_manifest`, and explicit file
    entries in `docs-manifest.yml` as required by the reviewed source contract.

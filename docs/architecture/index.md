@@ -8,8 +8,8 @@ This document defines the intended structure of the DASC documentation portal. I
 
 - Portal repository: `https://github.com/pydasc/pydasc.github.io`
 - Published organization-site URL: `https://pydasc.github.io/`
-- PyDASC source repository: `https://github.com/chongshikpark/pydasc`
-- DASC source repository: `https://github.com/chongshikpark/dasc`
+- PyDASC source repository: `https://github.com/pydasc/pydasc`
+- DASC source repository: `https://github.com/pydasc/dasc`
 
 All portal URLs and assets must work from the organization Pages root (`/`). Authored site links must be repository-relative rather than tied to a project subpath.
 

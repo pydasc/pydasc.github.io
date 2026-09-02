@@ -52,9 +52,9 @@ jobs:
           set -euo pipefail
           mkdir -p .source-checkouts
           git -c credential.helper= clone --quiet --depth=1 \
-            https://github.com/chongshikpark/pydasc .source-checkouts/pydasc
+            https://github.com/pydasc/pydasc .source-checkouts/pydasc
           git -c credential.helper= clone --quiet --depth=1 \
-            https://github.com/chongshikpark/dasc .source-checkouts/dasc
+            https://github.com/pydasc/dasc .source-checkouts/dasc
           for name in pydasc dasc; do
             content_commit="$(python - ".source-checkouts/$name/docs/publication-manifest.json" <<'PY'
           import json

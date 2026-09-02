@@ -40,7 +40,7 @@ jobs:
         with:
           app-id: ${{ secrets.DASC_DOCS_APP_ID }}
           private-key: ${{ secrets.DASC_DOCS_APP_PRIVATE_KEY }}
-          owner: chongshikpark
+          owner: pydasc
           repositories: |
             pydasc
             dasc

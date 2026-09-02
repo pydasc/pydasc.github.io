@@ -25,6 +25,6 @@ DASC is concerned with differentiable, self-consistent space-charge modeling and
 </div>
 
 !!! info "Documentation provenance"
-    Imported pages are copied only from an explicit publication manifest at reviewed commit SHAs. Each page identifies its exact upstream source. The authoritative code and issue trackers remain in the [PyDASC repository](https://github.com/chongshikpark/pydasc) and [DASC repository](https://github.com/chongshikpark/dasc).
+    Imported pages are copied only from an explicit publication manifest at reviewed commit SHAs. Each page identifies its exact upstream source. The authoritative code and issue trackers remain in the [PyDASC repository](https://github.com/pydasc/pydasc) and [DASC repository](https://github.com/pydasc/dasc).
 
 [Compare the projects](getting-started.md){ .md-button .md-button--primary }

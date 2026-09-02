@@ -7,14 +7,14 @@ This repository is the source for the DASC documentation website:
 - Repository: `https://github.com/pydasc/pydasc.github.io`
 - Published site: `https://pydasc.github.io/`
 - Documentation sources:
-  - `https://github.com/chongshikpark/pydasc`
-  - `https://github.com/chongshikpark/dasc`
+  - `https://github.com/pydasc/pydasc`
+  - `https://github.com/pydasc/dasc`
 
 The site is a static Material for MkDocs project deployed with GitHub Actions and GitHub Pages. It presents a unified, Read-the-Docs-like documentation experience while keeping `pydasc` and `dasc` as the authoritative upstream repositories.
 
 ## Working rules
 
-1. Treat upstream repositories as read-only inputs. Never push changes to `chongshikpark/pydasc` or `chongshikpark/dasc` from this repository's workflows or scripts.
+1. Treat upstream repositories as read-only inputs. Never push changes to `pydasc/pydasc` or `pydasc/dasc` from this repository's workflows or scripts.
 2. Publish only files explicitly listed in `docs-manifest.yml`. Do not recursively copy an upstream `docs/` tree, README collection, notebook directory, generated API output, or repository root.
 3. Reject manifest entries that are absolute paths, contain `..`, resolve through a symlink outside the source checkout, or target anything other than a regular file.
 4. Do not publish secrets, credentials, private URLs, CI logs, build artifacts, test data, development notes, security reports, or files not intended for public distribution.
@@ -59,13 +59,13 @@ The site is a static Material for MkDocs project deployed with GitHub Actions an
 schema_version: 1
 sources:
   pydasc:
-    repository: chongshikpark/pydasc
+    repository: pydasc/pydasc
     ref: "<reviewed full commit SHA>"
     files:
       - source: README.md
         destination: pydasc/index.md
   dasc:
-    repository: chongshikpark/dasc
+    repository: pydasc/dasc
     ref: "<reviewed full commit SHA>"
     files:
       - source: README.md
