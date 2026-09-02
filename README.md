@@ -2,12 +2,10 @@
 
 This repository builds the public documentation portal for DASC and PyDASC with [Material for MkDocs](https://squidfunk.github.io/mkdocs-material/). It provides a single Read-the-Docs-like interface while the project documentation remains authored in its respective source repository.
 
-- Website repository: `https://github.com/chongshikpark/dasc.github.io`
-- Published website: `https://chongshikpark.github.io/dasc.github.io/`
-- PyDASC source: `https://github.com/chongshikpark/pydasc`
-- DASC source: `https://github.com/chongshikpark/dasc`
-
-> GitHub Pages project sites use `https://<owner>.github.io/<repository>/`. Because this repository is named `dasc.github.io` rather than `chongshikpark.github.io`, the canonical Pages URL includes `/dasc.github.io/`.
+- Website repository: `https://github.com/pydasc/pydasc.github.io`
+- Published website: `https://pydasc.github.io/`
+- PyDASC source: `https://github.com/pydasc/pydasc`
+- DASC source: `https://github.com/pydasc/dasc`
 
 ## Design
 
@@ -62,14 +60,14 @@ publication contract that approves the selected files.
 schema_version: 2
 sources:
   pydasc:
-    repository: https://github.com/chongshikpark/pydasc
+    repository: https://github.com/pydasc/pydasc
     checkout_commit: "<40-character commit SHA>"
     publication_manifest: docs/publication-manifest.json
     files:
       - source: README.md
         destination: pydasc/index.md
   dasc:
-    repository: https://github.com/chongshikpark/dasc
+    repository: https://github.com/pydasc/dasc
     checkout_commit: "<40-character commit SHA>"
     publication_manifest: docs/publication-manifest.json
     files:
@@ -90,9 +88,9 @@ The implementation should use this baseline:
 ```yaml
 site_name: DASC Documentation
 site_description: Documentation for DASC and PyDASC
-site_url: https://chongshikpark.github.io/dasc.github.io/
-repo_name: chongshikpark/dasc.github.io
-repo_url: https://github.com/chongshikpark/dasc.github.io
+site_url: https://pydasc.github.io/
+repo_name: pydasc/pydasc.github.io
+repo_url: https://github.com/pydasc/pydasc.github.io
 edit_uri: edit/main/docs/
 docs_dir: docs
 site_dir: site
@@ -205,7 +203,7 @@ requirements that a future, explicitly reviewed approval must satisfy.
 
 ## Updating imported documentation
 
-1. Choose a reviewed commit from `chongshikpark/pydasc` or `chongshikpark/dasc`.
+1. Choose a reviewed commit from `pydasc/pydasc` or `pydasc/dasc`.
 2. Audit each proposed source file for public suitability and licensing.
 3. Update the source `checkout_commit`, `publication_manifest`, and explicit file
    entries in `docs-manifest.yml` as required by the reviewed source contract.
@@ -230,7 +228,7 @@ deploys an artifact.
 
 `deploy-pages.yml` runs on pushes to `main` and by manual dispatch. It should:
 
-- check out `chongshikpark/dasc.github.io`;
+- check out `pyaasc/pydasc.github.io`;
 - configure Python and install `requirements-docs.txt`;
 - collect sources at the manifest's immutable commit SHAs;
 - validate the staged documentation and run tests;

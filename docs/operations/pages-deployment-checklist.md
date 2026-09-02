@@ -31,7 +31,7 @@ authorized.
 - [ ] Approve the protected `github-pages` environment only after the artifact
       inspection is recorded.
 - [ ] Verify the published site while signed out at
-      `https://chongshikpark.github.io/dasc.github.io/`.
+      `https://pydasc.github.io/`.
 - [ ] Check the home page, PyDASC and DASC navigation, search, styles, assets,
       provenance links, and a nonexistent route below `/dasc.github.io/`.
 - [ ] Record the workflow run, website commit, both source content commits, and

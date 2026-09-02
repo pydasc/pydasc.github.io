@@ -13,7 +13,7 @@ from urllib.parse import unquote, urlsplit
 
 PERSONAL_PATH = re.compile(r"/(?:Users|home)/[^\s<]+")
 CSS_ROOT_URL = re.compile(r"url\(\s*(['\"]?)/")
-SITE_BASE_PATH = "/dasc.github.io/"
+SITE_BASE_PATH = "/"
 REQUIRED_TOKENS = {
     "--dasc-sidebar-width": "300px",
     "--dasc-sidebar-bg": "#343131",

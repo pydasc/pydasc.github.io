@@ -31,10 +31,10 @@ Defined the initial information architecture, controlled documentation statuses,
 ## Verification evidence
 
 - All four required identities are exact and consistent:
-  - `https://github.com/chongshikpark/dasc.github.io`
-  - `https://chongshikpark.github.io/dasc.github.io/`
-  - `https://github.com/chongshikpark/pydasc`
-  - `https://github.com/chongshikpark/dasc`
+  - `https://github.com/pydasc/pydasc.github.io`
+  - `https://pydasc.github.io/`
+  - `https://github.com/pydasc/pydasc`
+  - `https://github.com/pydasc/dasc`
 - Architecture records contain no personal absolute filesystem paths.
 - Internal architecture links resolve to existing repository files.
 - Controlled status vocabulary and evidence requirements are present.

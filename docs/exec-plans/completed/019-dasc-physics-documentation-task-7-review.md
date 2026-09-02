@@ -17,11 +17,11 @@ permission, or publication status changed.
 
 - **Pages/URLs:**
   - `docs/dasc-method-selection.md`,
-    `https://chongshikpark.github.io/dasc.github.io/dasc-method-selection/`
+    `https://pydasc.github.io/dasc-method-selection/`
   - `docs/dasc-validation-matrix.md`,
-    `https://chongshikpark.github.io/dasc.github.io/dasc-validation-matrix/`
+    `https://pydasc.github.io/dasc-validation-matrix/`
   - `docs/dasc-reproducibility.md`,
-    `https://chongshikpark.github.io/dasc.github.io/dasc-reproducibility/`
+    `https://pydasc.github.io/dasc-reproducibility/`
   - also every other DASC Markdown table.
 - **Evidence:** generated tables are bare `<table>` elements, not children of
   `.md-typeset__table`. At `docs/stylesheets/readthedocs.css:547`, horizontal
@@ -91,7 +91,7 @@ permission, or publication status changed.
 ### Medium — DASC-REV-003: fixed-point notation is corrupted by Markdown emphasis
 
 - **Page/section:** `docs/dasc-da-self-consistency.md:25`,
-  `https://chongshikpark.github.io/dasc.github.io/dasc-da-self-consistency/#iterated-and-fixed-point-models`.
+  `https://pydasc.github.io/dasc-da-self-consistency/#iterated-and-fixed-point-models`.
 - **Evidence:** source text `x*(θ) satisfies x* = F(x*,θ)` renders as
   `x<em>(θ) satisfies x</em> = F(x*,θ)`. The fixed-point stars disappear or
   delimit an italic span, while the following MathML equation correctly uses x*.
@@ -115,7 +115,7 @@ permission, or publication status changed.
 ### Medium — DASC-REV-004: validation-matrix implementation evidence is not directly traceable
 
 - **Page/section:** `docs/dasc-validation-matrix.md:17–35`,
-  `https://chongshikpark.github.io/dasc.github.io/dasc-validation-matrix/`.
+  `https://pydasc.github.io/dasc-validation-matrix/`.
 - **Evidence:** the page gives locked commit SHAs, but component and test cells
   contain abbreviated code text such as `space_charge_vgf.py` and
   `test_vgf_kernel.py`, not links to the exact repository, path, and immutable

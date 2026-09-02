@@ -16,6 +16,6 @@ eigenmode formulation.
     one boundary-value problem into the other.
 
 See the public DASC
-[DA–TGF source study](https://github.com/chongshikpark/dasc/blob/94033eae4d8eac81f4c42c41f6cfba69e1cd2a25/docs/differentiable_symplectic_space_charge_study.tex)
+[DA–TGF source study](https://github.com/pydasc/dasc/blob/94033eae4d8eac81f4c42c41f6cfba69e1cd2a25/docs/differentiable_symplectic_space_charge_study.tex)
 and the current [PyDASC simulation workflow](pydasc/guides/simulation-workflow.md).
 

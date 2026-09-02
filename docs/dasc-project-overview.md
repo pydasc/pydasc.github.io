@@ -96,10 +96,10 @@ claim against independent evidence and convergence criteria.
 
 ## Authoritative records
 
-- [DASC source, issues, and research records](https://github.com/chongshikpark/dasc)
-- [PyDASC source, releases, and issues](https://github.com/chongshikpark/pydasc)
+- [DASC source, issues, and research records](https://github.com/pydasc/dasc)
+- [PyDASC source, releases, and issues](https://github.com/pydasc/pydasc)
 - [Reviewed DASC source overview](dasc/index.md)
-- [Portal collection and publication policy](https://github.com/chongshikpark/dasc.github.io)
+- [Portal collection and publication policy](https://github.com/pydasc/pydasc.github.io)
 - [Reproducibility section](dasc-reproducibility.md)
 - [Physics claim validation matrix](dasc-validation-matrix.md)
 - [Research outputs and publications](dasc-research-outputs.md)

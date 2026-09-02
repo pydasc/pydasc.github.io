@@ -21,8 +21,8 @@ from urllib.parse import unquote, urlsplit
 import yaml
 
 EXPECTED = {
-    "pydasc": "https://github.com/chongshikpark/pydasc",
-    "dasc": "https://github.com/chongshikpark/dasc",
+    "pydasc": "https://github.com/pydasc/pydasc",
+    "dasc": "https://github.com/pydasc/dasc",
 }
 ALLOWED = {".md", ".png", ".jpg", ".jpeg", ".webp"}
 MEDIA = {".md": "text/markdown", ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".webp": "image/webp"}

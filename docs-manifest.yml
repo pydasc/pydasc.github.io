@@ -1,7 +1,7 @@
 schema_version: 2
 sources:
   pydasc:
-    repository: https://github.com/chongshikpark/pydasc
+    repository: https://github.com/pydasc/pydasc
     checkout_commit: 0506b8a9feb75813ae979f0c1c25a307b21096d2
     publication_manifest: docs/publication-manifest.json
     files:
@@ -14,7 +14,7 @@ sources:
       - source: docs/SIMULATION_WORKFLOW.md
         destination: pydasc/guides/simulation-workflow.md
   dasc:
-    repository: https://github.com/chongshikpark/dasc
+    repository: https://github.com/pydasc/dasc
     checkout_commit: 94033eae4d8eac81f4c42c41f6cfba69e1cd2a25
     publication_manifest: docs/publication-manifest.json
     files:

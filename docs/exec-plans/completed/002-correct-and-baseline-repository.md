@@ -29,9 +29,9 @@ Established and verified the website repository foundation without importing ups
 
 ## Verification evidence
 
-- Repository remote: `https://github.com/chongshikpark/dasc.github.io.git`.
-- Canonical Pages URL in active guidance and configuration: `https://chongshikpark.github.io/dasc.github.io/`.
-- Source repositories consistently identify `chongshikpark/pydasc` and `chongshikpark/dasc`.
+- Repository remote: `https://github.com/pydasc/pydasc.github.io.git`.
+- Canonical Pages URL in active guidance and configuration: `https://pydasc.github.io/`.
+- Source repositories consistently identify `pydasc/pydasc` and `pydasc/dasc`.
 - No active instruction uses a conflicting owner, website repository, source repository, or Pages URL.
 - README local links to `AGENTS.md` and `docs/codex_tasks.md` exist; the external Material for MkDocs link resolved during review.
 - No personal absolute filesystem path was found in the repository files reviewed for Task0.

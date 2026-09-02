@@ -4,17 +4,17 @@
 
 This repository is the source for the DASC documentation website:
 
-- Repository: `https://github.com/chongshikpark/dasc.github.io`
-- Published site: `https://chongshikpark.github.io/dasc.github.io/`
+- Repository: `https://github.com/pydasc/pydasc.github.io`
+- Published site: `https://pydasc.github.io/`
 - Documentation sources:
-  - `https://github.com/chongshikpark/pydasc`
-  - `https://github.com/chongshikpark/dasc`
+  - `https://github.com/pydasc/pydasc`
+  - `https://github.com/pydasc/dasc`
 
 The site is a static Material for MkDocs project deployed with GitHub Actions and GitHub Pages. It presents a unified, Read-the-Docs-like documentation experience while keeping `pydasc` and `dasc` as the authoritative upstream repositories.
 
 ## Working rules
 
-1. Treat upstream repositories as read-only inputs. Never push changes to `chongshikpark/pydasc` or `chongshikpark/dasc` from this repository's workflows or scripts.
+1. Treat upstream repositories as read-only inputs. Never push changes to `pydasc/pydasc` or `pydasc/dasc` from this repository's workflows or scripts.
 2. Publish only files explicitly listed in `docs-manifest.yml`. Do not recursively copy an upstream `docs/` tree, README collection, notebook directory, generated API output, or repository root.
 3. Reject manifest entries that are absolute paths, contain `..`, resolve through a symlink outside the source checkout, or target anything other than a regular file.
 4. Do not publish secrets, credentials, private URLs, CI logs, build artifacts, test data, development notes, security reports, or files not intended for public distribution.
@@ -59,13 +59,13 @@ The site is a static Material for MkDocs project deployed with GitHub Actions an
 schema_version: 1
 sources:
   pydasc:
-    repository: chongshikpark/pydasc
+    repository: pydasc/pydasc
     ref: "<reviewed full commit SHA>"
     files:
       - source: README.md
         destination: pydasc/index.md
   dasc:
-    repository: chongshikpark/dasc
+    repository: pydasc/dasc
     ref: "<reviewed full commit SHA>"
     files:
       - source: README.md
@@ -82,7 +82,7 @@ Every `ref` used for production must be a reviewed 40-character commit SHA. Bran
 - Make collection fail closed: an unknown manifest key, missing source, duplicate destination, invalid source/ref, unsafe link, or unsupported file type must stop the build.
 - Prefer Markdown, approved images, and explicitly required downloadable examples. Define allowed extensions in the collector and test them.
 - Add a generated-file banner with source repository, source path, and commit SHA when the file type supports comments without affecting rendering.
-- Configure `site_url` as `https://chongshikpark.github.io/dasc.github.io/` and `repo_url` as `https://github.com/chongshikpark/dasc.github.io`.
+- Configure `site_url` as `https://pydasc.github.io/` and `repo_url` as `https://github.com/pydasc/pydasc.github.io`.
 - Keep navigation explicit in `mkdocs.yml`; do not expose a file merely because it exists under `docs/`.
 - Use `mkdocs build --strict` in all checks and before deployment.
 

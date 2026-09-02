@@ -172,7 +172,7 @@ def test_validation_matrix_evidence_links_are_complete_and_immutable() -> None:
     matrix = (ROOT / "docs/dasc-validation-matrix.md").read_text()
     sha = "0506b8a9feb75813ae979f0c1c25a307b21096d2"
     urls = re.findall(
-        r"https://github\.com/chongshikpark/pydasc/(?:blob|tree)/"
+        r"https://github\.com/pydasc/pydasc/(?:blob|tree)/"
         + sha
         + r"/[^)]+",
         matrix,
@@ -183,7 +183,7 @@ def test_validation_matrix_evidence_links_are_complete_and_immutable() -> None:
     assert "/master/" not in matrix
     for path in re.findall(r"`([^`]+\.py)`", matrix):
         expected = (
-            f"[`{path}`](https://github.com/chongshikpark/pydasc/blob/{sha}/{path})"
+            f"[`{path}`](https://github.com/pydasc/pydasc/blob/{sha}/{path})"
         )
         assert expected in matrix
 

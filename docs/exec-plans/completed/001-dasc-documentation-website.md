@@ -7,7 +7,7 @@ Completed: 2026-08-02
 
 Build a production-ready Material for MkDocs portal for DASC and PyDASC at:
 
-`https://chongshikpark.github.io/dasc.github.io/`
+`https://pydasc.github.io/`
 
 ## Implemented
 
@@ -30,8 +30,8 @@ Upstream revisions:
 
 Allowlisted files:
 
-- `chongshikpark/pydasc:README.md` → `docs/pydasc/index.md`
-- `chongshikpark/dasc:README.md` → `docs/dasc/index.md`
+- `pydasc/pydasc:README.md` → `docs/pydasc/index.md`
+- `pydasc/dasc:README.md` → `docs/dasc/index.md`
 
 No upstream images, notebooks, repository trees, build artifacts, or additional documents are published. Links to existing but unlisted upstream documents are rewritten to immutable GitHub URLs at the pinned revision. Unlisted images are rejected.
 

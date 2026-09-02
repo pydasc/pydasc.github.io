@@ -20,6 +20,6 @@ model.
     convergence, gauge consistency, and causality require their own tests.
 
 The method scope follows the reviewed DASC
-[DA–TGF study](https://github.com/chongshikpark/dasc/blob/94033eae4d8eac81f4c42c41f6cfba69e1cd2a25/docs/differentiable_symplectic_space_charge_study.tex)
-and [physics-first research plan](https://github.com/chongshikpark/dasc/blob/94033eae4d8eac81f4c42c41f6cfba69e1cd2a25/docs/space_charge_research_plan.tex).
+[DA–TGF study](https://github.com/pydasc/dasc/blob/94033eae4d8eac81f4c42c41f6cfba69e1cd2a25/docs/differentiable_symplectic_space_charge_study.tex)
+and [physics-first research plan](https://github.com/pydasc/dasc/blob/94033eae4d8eac81f4c42c41f6cfba69e1cd2a25/docs/space_charge_research_plan.tex).
 Proposed collective effects and performance claims are not evidence here.

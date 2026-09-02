@@ -1,8 +1,8 @@
 site_name: DASC Documentation
 site_description: Documentation portal for DASC and PyDASC
-site_url: https://chongshikpark.github.io/dasc.github.io/
-repo_name: chongshikpark/dasc.github.io
-repo_url: https://github.com/chongshikpark/dasc.github.io
+site_url: https://pydasc.github.io/
+repo_name: pydasc/dasc.github.io
+repo_url: https://github.com/pydasc/pydasc.github.io
 edit_uri: edit/main/docs/
 docs_dir: docs
 site_dir: site

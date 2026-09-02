@@ -6,10 +6,10 @@ This document defines the intended structure of the DASC documentation portal. I
 
 ## Fixed identities
 
-- Portal repository: `https://github.com/chongshikpark/dasc.github.io`
-- Published project-site URL: `https://chongshikpark.github.io/dasc.github.io/`
-- PyDASC source repository: `https://github.com/chongshikpark/pydasc`
-- DASC source repository: `https://github.com/chongshikpark/dasc`
+- Portal repository: `https://github.com/pydasc/pydasc.github.io`
+- Published project-site URL: `https://pydasc.github.io/`
+- PyDASC source repository: `https://github.com/pydasc/pydasc`
+- DASC source repository: `https://github.com/pydasc/dasc`
 
 All portal URLs and assets must work below `/dasc.github.io/`. Authored site links must be repository-relative rather than root-relative.
 

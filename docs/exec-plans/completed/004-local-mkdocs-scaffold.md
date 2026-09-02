@@ -10,9 +10,9 @@ Made the local site scaffold self-contained and strict-buildable without checkin
 ## Scaffold changes
 
 - Kept the exact required values:
-  - `site_url: https://chongshikpark.github.io/dasc.github.io/`
-  - `repo_name: chongshikpark/dasc.github.io`
-  - `repo_url: https://github.com/chongshikpark/dasc.github.io`
+  - `site_url: https://pydasc.github.io/`
+  - `repo_name: pydasc/pydasc.github.io`
+  - `repo_url: https://github.com/pydasc/pydasc.github.io`
 - Added hand-written `pydasc.md` and `dasc.md` scaffold sections matching the approved information architecture.
 - Labeled both local placeholders as Draft and avoided importing or inventing technical content.
 - Updated Home and Choose-a-project links to the hand-written scaffold sections.
