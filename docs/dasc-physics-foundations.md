@@ -14,8 +14,8 @@ conducting boundaries. Shared notation does not make those models
 interchangeable.
 
 Primary candidate sources are the public DASC
-[DA–TGF study](https://github.com/pydasc/dasc/blob/94033eae4d8eac81f4c42c41f6cfba69e1cd2a25/docs/differentiable_symplectic_space_charge_study.tex)
-and [reassessed cavity study](https://github.com/pydasc/dasc/blob/94033eae4d8eac81f4c42c41f6cfba69e1cd2a25/docs/space_charge_fields_with_aperture_study.tex).
+[DA–TGF study](https://github.com/chongshikpark/dasc/blob/94033eae4d8eac81f4c42c41f6cfba69e1cd2a25/docs/differentiable_symplectic_space_charge_study.tex)
+and [reassessed cavity study](https://github.com/chongshikpark/dasc/blob/94033eae4d8eac81f4c42c41f6cfba69e1cd2a25/docs/space_charge_fields_with_aperture_study.tex).
 Linking these sources does not add them to the website publication allowlist.
 
 !!! warning "Scientific status"

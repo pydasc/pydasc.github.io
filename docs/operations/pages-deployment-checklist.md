@@ -33,7 +33,7 @@ authorized.
 - [ ] Verify the published site while signed out at
       `https://pydasc.github.io/`.
 - [ ] Check the home page, PyDASC and DASC navigation, search, styles, assets,
-      provenance links, and a nonexistent route below `/dasc.github.io/`.
+      provenance links, and a nonexistent route below the site root (`/`).
 - [ ] Record the workflow run, website commit, both source content commits, and
       deployment URL in the release review.
 

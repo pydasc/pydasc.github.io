@@ -4,11 +4,11 @@ The two projects share a documentation home but have separate source repositorie
 
 ## PyDASC
 
-Use the [PyDASC overview](pydasc/index.md) for the computational and numerical software package. Its authoritative source, releases, and issue tracker are at [pydasc/pydasc](https://github.com/pydasc/pydasc).
+Use the [PyDASC overview](pydasc/index.md) for the computational and numerical software package. Its authoritative source, releases, and issue tracker are at [chongshikpark/pydasc](https://github.com/chongshikpark/pydasc).
 
 ## DASC
 
-Use the [DASC project overview](dasc-project-overview.md) for the physics, derivation, analysis, reproducibility, and publication project concerned with differentiable, self-consistent space-charge modeling. Its authoritative source and issue tracker are at [pydasc/dasc](https://github.com/pydasc/dasc).
+Use the [DASC project overview](dasc-project-overview.md) for the physics, derivation, analysis, reproducibility, and publication project concerned with differentiable, self-consistent space-charge modeling. Its authoritative source and issue tracker are at [chongshikpark/dasc](https://github.com/chongshikpark/dasc).
 
 ```text
 Computational and numerical software                       → PyDASC

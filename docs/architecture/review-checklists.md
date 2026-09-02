@@ -77,7 +77,7 @@ Use these checklists before adding a page to public navigation and again when in
 - [ ] Light and dark color schemes were inspected where both are supported.
 - [ ] Search results identify the project and do not expose excluded pages.
 - [ ] Code, equations, tables, images, admonitions, and citations render without strict-build warnings.
-- [ ] Routes and assets work below `/dasc.github.io/`; no root-relative asset URL is present.
+- [ ] Routes and assets work from the organization Pages root (`/`) without a project-site subpath.
 - [ ] Superseded content points to its reviewed replacement.
 
 ## Review outcome
