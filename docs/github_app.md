@@ -1,117 +1,162 @@
-Create one GitHub App, install it on the two private source repositories,
-  then store its credentials in the public website repository.
+# GitHub App for private source access
 
-  ### 1. Create the GitHub App
+Use one narrowly scoped GitHub App to let the public website repository read
+the two private source repositories named by `sources.lock.yml`:
 
-  While signed in to GitHub:
+- `pydasc/dasc`
+- `pydasc/pydasc`
 
-  1. Open Profile picture → Settings.
-  2. Select Developer settings → GitHub Apps.
-  3. Click New GitHub App.
-  4. Configure:
-      - GitHub App name: for example DASC Documentation Reader
-      - Homepage URL: https://pydasc.github.io/
-      - Webhook: uncheck Active
-      - Repository permissions → Contents: Read-only
-      - Leave all other repository and organization permissions at No access
-      - Where can this GitHub App be installed? Select Only on this account
+Store the App credentials in `pydasc/pydasc.github.io`. The App replaces
+source deploy keys; it does not grant deployment or website-repository write
+access.
 
-  5. Click Create GitHub App.
+This procedure applies while `sources.lock.yml` names the repositories above.
+If an authoritative source moves, review and update the lock separately before
+changing the App installation. Repository presence or copying alone does not
+authorize a source-location change.
 
-  GitHub’s instructions: Registering a GitHub App.
+## 1. Create the GitHub App
 
-  ### 2. Record the App ID
+While signed in as an owner of the `pydasc` organization:
 
-  On the newly created App’s General page, find App ID.
+1. Open **Profile picture → Settings**.
+2. Select **Developer settings → GitHub Apps**.
+3. Select **New GitHub App**.
+4. Configure:
+   - **GitHub App name:** for example `dasc Documentation Reader`
+   - **Homepage URL:** `https://pydasc.github.io/`
+   - **Webhook:** clear **Active**
+   - **Repository permissions → Contents:** **Read-only**
+   - Leave every other repository and organization permission at **No access**
+   - **Where can this GitHub App be installed?** Select **Only on this account**
+5. Select **Create GitHub App**.
 
-  Use the numeric App ID, not the Client ID.
+Create the App under the `pydasc` organization, not a personal account, so it
+can be installed on both locked organization repositories.
 
-  You will store this value as:
+## 2. Record the App ID
 
-  DASC_DOCS_APP_ID 4805844
+On the App's **General** page, record the numeric **App ID**, not the Client ID.
+It will be stored as this Actions secret:
 
-  ### 3. Generate the private key
+```text
+DASC_DOCS_APP_ID
+```
 
-  On the same App configuration page:
+## 3. Generate the private key
 
-  1. Scroll to Private keys.
-  2. Click Generate a private key.
-  3. GitHub will download a .pem file.
-  4. Keep this file private. Do not add it to any repository.
+On the same App configuration page:
 
-  The secret value must include the complete file:
+1. Scroll to **Private keys**.
+2. Select **Generate a private key**.
+3. GitHub downloads a `.pem` file.
+4. Keep the file private and never add it to a repository or build artifact.
 
-  -----BEGIN RSA PRIVATE KEY-----
-  ...
-  -----END RSA PRIVATE KEY-----
+The secret must contain the complete downloaded file, including its `BEGIN`
+and `END` lines. Do not print the key in a terminal, workflow log, or generated
+page.
 
-  GitHub’s instructions: Managing private keys for GitHub Apps.
+## 4. Install the App on the two private sources
 
-  ### 4. Install the App on both private repositories
+From the App configuration page:
 
-  From the GitHub App configuration page:
+1. Select **Install App**.
+2. Select **Install** beside the `pydasc` organization.
+3. Choose **Only select repositories**.
+4. Select only:
+   - `pydasc/dasc`
+   - `pydasc/pydasc`
+5. Complete the installation.
 
-  1. Select Install App from the left sidebar.
-  2. Click Install beside your account.
-  3. Choose Only select repositories.
-  4. Select:
-      - pydasc/pydasc
-      - pydasc/dasc
+Do not install the App on every repository. Read-only Contents access to these
+two sources is sufficient.
 
-  5. Click Install.
+## 5. Add the website repository secrets
 
-  Do not install it on every repository. The App needs only read access to
-  those two sources.
+Open:
 
-  GitHub’s instructions: Installing your own GitHub App.
+**pydasc/pydasc.github.io → Settings → Secrets and variables → Actions**
 
-  ### 5. Add the repository secrets
+Create these repository secrets:
 
-  Open:
+| Name | Value |
+| --- | --- |
+| `DASC_DOCS_APP_ID` | Numeric GitHub App ID |
+| `DASC_DOCS_APP_PRIVATE_KEY` | Complete contents of the downloaded `.pem` file |
 
-  pydasc/pydasc.github.io → Settings → Secrets and variables → Actions
+Use repository secrets rather than `github-pages` environment secrets because
+the pull-request validation, Pages build, and source-update validation jobs all
+need source read access. GitHub will not display the values again.
 
-  Under Repository secrets, click New repository secret and create both
-  secrets.
+Verify only their presence, without revealing values:
 
-  First secret:
+```bash
+gh secret list --repo pydasc/pydasc.github.io
+```
 
-  Name: DASC_DOCS_APP_ID
-  Secret: 4805844
+The output should list:
 
-  Second secret:
+```text
+DASC_DOCS_APP_ID
+DASC_DOCS_APP_PRIVATE_KEY
+```
 
-  Name: DASC_DOCS_APP_PRIVATE_KEY
-  Secret: <complete contents of the downloaded .pem file>
+## 6. Convert the workflows to installation-token checkout
 
-  Paste the complete private key, including the BEGIN and END lines.
+Adding the secrets alone is not sufficient. The current workflows pass
+`DASC_SOURCE_DEPLOY_KEY` and `PYDASC_SOURCE_DEPLOY_KEY` to the `ssh-key`
+input of `actions/checkout`. Update each source-reading job in:
 
-  Add these as repository secrets, not github-pages environment secrets,
-  because both the documentation-check job and deployment build job require
-  them.
+- `.github/workflows/site-check.yml`
+- `.github/workflows/pages.yml`
+- `.github/workflows/source-update.yml`
 
-  GitHub’s instructions: Using secrets in GitHub Actions.
+Before the source checkout steps, mint one short-lived installation token:
 
-  ### 6. Verify the names
+```yaml
+- name: Create source-read installation token
+  id: source_token
+  uses: actions/create-github-app-token@v2
+  with:
+    app-id: ${{ secrets.DASC_DOCS_APP_ID }}
+    private-key: ${{ secrets.DASC_DOCS_APP_PRIVATE_KEY }}
+    owner: pydasc
+    repositories: |
+      dasc
+      pydasc
+    permission-contents: read
+```
 
-  After adding them, the Actions secrets page should list:
+For every dasc and pydasc checkout in that job:
 
-  DASC_DOCS_APP_ID
-  DASC_DOCS_APP_PRIVATE_KEY
+- replace `ssh-key: ...` with
+  `token: ${{ steps.source_token.outputs.token }}`;
+- retain `persist-credentials: false`;
+- retain the repository, exact locked `ref`, path, and fetch-depth settings;
+- keep the post-checkout credential scan; and
+- do not print the token or persist it in artifacts.
 
-  GitHub will not display their values again.
+The workflow's `GITHUB_TOKEN` permissions do not provide cross-repository
+private-source access. The short-lived App installation token supplies only the
+separately granted read access.
 
-  You can also verify their presence without revealing values:
+Update workflow-structure tests and credential documentation in the same
+change. Validate the workflow YAML and run the complete local test suite before
+pushing.
 
-  gh secret list --repo pydasc/pydasc.github.io
+## 7. Verify in GitHub Actions
 
-  ### 7. Deploy
+After the reviewed workflow conversion is committed and pushed:
 
-  The workflow changes still need to be committed and pushed by you. After
-  pushing, check that:
+1. Confirm the source-token step succeeds without exposing credentials.
+2. Confirm both exact locked source checkouts succeed.
+3. Confirm the runner credential scan succeeds.
+4. Confirm **Site validation / Validate public artifact** passes.
+5. Confirm **Deploy GitHub Pages** builds and deploys the validated artifact.
+6. Confirm the signed-out site at <https://pydasc.github.io/> shows the
+   expected MkDocs site.
 
-  1. Documentation checks passes.
-  2. Deploy documentation to Pages passes.
-  3. The generic Deploy static content to Pages workflow no longer exists.
-  4. The website root displays the MkDocs homepage rather than a 404 or
-     README.
+Remove the old deploy-key secrets and source-repository deploy keys only after
+all App-token workflows pass. Secret and key removal is a separate authorized
+administrator action; do not remove the last working credential during
+cutover.
