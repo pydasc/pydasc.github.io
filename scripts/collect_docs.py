@@ -24,6 +24,19 @@ EXPECTED = {
     "pydasc": "https://github.com/pydasc/pydasc",
     "dasc": "https://github.com/pydasc/dasc",
 }
+# Repository transfers preserve commit IDs. These two reviewed contract commits
+# predate the transfer and therefore retain their former repository identity.
+# Keep the exception commit-specific so no future contract can silently use it.
+LEGACY_CONTRACT_REPOSITORIES = {
+    "pydasc": {
+        "0506b8a9feb75813ae979f0c1c25a307b21096d2":
+            "https://github.com/chongshikpark/pydasc",
+    },
+    "dasc": {
+        "94033eae4d8eac81f4c42c41f6cfba69e1cd2a25":
+            "https://github.com/chongshikpark/dasc",
+    },
+}
 ALLOWED = {".md", ".png", ".jpg", ".jpeg", ".webp"}
 MEDIA = {".md": "text/markdown", ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".webp": "image/webp"}
 MAX_FILE_BYTES = 5 * 1024 * 1024
@@ -195,7 +208,10 @@ def _source_contract(
     if name == "dasc":
         root_keys.add("publication_decision")
     root = _mapping(raw, root_keys, f"{name} publication manifest")
-    if root["schema_version"] != 1 or root["project"] != name or root["repository"] != repository:
+    accepted_repository = root["repository"] == repository or root["repository"] == (
+        LEGACY_CONTRACT_REPOSITORIES[name].get(checkout)
+    )
+    if root["schema_version"] != 1 or root["project"] != name or not accepted_repository:
         raise CollectionError(f"invalid {name} publication identity/schema")
     content = root["source_commit"]
     if not isinstance(content, str) or not SHA_RE.fullmatch(content):

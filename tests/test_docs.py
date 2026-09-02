@@ -34,6 +34,12 @@ def test_dirty_publication_manifest_rejected(tmp_path):
  m,p,d=fixture(tmp_path);contract_path=p/"docs/publication-manifest.json";contract=json.loads(contract_path.read_text());contract["files"][0]["documentation_status"]["evidence"]="uncommitted approval";contract_path.write_text(json.dumps(contract))
  with pytest.raises(CollectionError,match="differs from locked commit"):assemble(m,tmp_path/"out",p,d)
 
+def test_transferred_repository_identity_is_accepted_only_for_allowlisted_contract_commit(tmp_path, monkeypatch):
+ m,p,d=fixture(tmp_path);contract_path=p/"docs/publication-manifest.json";contract=json.loads(contract_path.read_text());contract["repository"]="https://github.com/chongshikpark/pydasc";contract_path.write_text(json.dumps(contract));git(p,"add","docs/publication-manifest.json");git(p,"commit","-qm","pre-transfer contract");commit=git(p,"rev-parse","HEAD");data=yaml.safe_load(m.read_text());data["sources"]["pydasc"]["checkout_commit"]=commit;m.write_text(yaml.safe_dump(data))
+ with pytest.raises(CollectionError,match="publication identity"):assemble(m,tmp_path/"rejected",p,d)
+ monkeypatch.setitem(collect_docs.LEGACY_CONTRACT_REPOSITORIES["pydasc"],commit,"https://github.com/chongshikpark/pydasc")
+ assemble(m,tmp_path/"accepted",p,d)
+
 @pytest.mark.parametrize("collision", ["source", "destination"])
 def test_duplicate_upstream_contract_paths_rejected_case_insensitively(tmp_path, collision):
  m,p,d=fixture(tmp_path);contract_path=p/"docs/publication-manifest.json";contract=json.loads(contract_path.read_text());duplicate=json.loads(json.dumps(contract["files"][0]))
