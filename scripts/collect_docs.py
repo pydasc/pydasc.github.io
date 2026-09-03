@@ -40,8 +40,6 @@ DOCUMENTATION_STATUSES = {
     "Draft", "Reviewed", "Reference", "Validated", "Unvalidated",
     "Superseded", "Released",
 }
-LINK_RE = re.compile(r"(!?\[[^\]]*\])\(([^)\s]+)(?:\s+['\"][^)]*['\"])?\)")
-ANGLE_LINK_RE = re.compile(r"!?\[[^\]\n]*\]\(\s*<")
 REFERENCE_LINK_RE = re.compile(r"^\s{0,3}\[(?!\^)[^\]]+\]:", re.MULTILINE)
 MARKDOWN_AUTOLINK_RE = re.compile(
     r"<(?:https?://[^<>\s]+|[^<>\s@]+@[^<>\s@]+)>"
@@ -147,6 +145,14 @@ class Entry:
     attribution: str
 
 
+@dataclass(frozen=True)
+class MarkdownLink:
+    label: str
+    destination: str
+    destination_start: int
+    destination_end: int
+
+
 def _mapping(value: object, keys: set[str], context: str) -> dict[str, Any]:
     if not isinstance(value, dict) or set(value) != keys:
         actual = set(value) if isinstance(value, dict) else set()
@@ -199,8 +205,8 @@ def _split_link(raw: str, source: PurePosixPath) -> SplitResult:
         raise CollectionError(f"invalid link URL {raw!r} in {source}") from exc
 
 
-def _markdown_link_matches(text: str, source: PurePosixPath) -> list[re.Match[str]]:
-    """Find supported rendered links while excluding Markdown code and escapes."""
+def _markdown_visible_text(text: str) -> str:
+    """Mask Markdown code and escapes while retaining source offsets."""
     masked = list(text)
     fenced = False
     fence_character = ""
@@ -257,10 +263,82 @@ def _markdown_link_matches(text: str, source: PurePosixPath) -> list[re.Match[st
                 continue
         index += 1
 
-    visible = "".join(masked)
-    if ANGLE_LINK_RE.search(visible):
-        raise CollectionError(f"angle-bracket link destinations are not allowed: {source}")
-    return list(LINK_RE.finditer(visible))
+    return "".join(masked)
+
+
+def _markdown_link_matches(text: str, source: PurePosixPath) -> list[MarkdownLink]:
+    """Parse supported inline links and images with balanced delimiters."""
+    visible = _markdown_visible_text(text)
+    links: list[MarkdownLink] = []
+    index = 0
+    while index < len(visible):
+        start = index
+        if visible[index] == "!" and index + 1 < len(visible) and visible[index + 1] == "[":
+            index += 1
+        if visible[index] != "[":
+            index = start + 1
+            continue
+        cursor = index + 1
+        label_depth = 1
+        while cursor < len(visible) and label_depth:
+            if visible[cursor] == "[":
+                label_depth += 1
+            elif visible[cursor] == "]":
+                label_depth -= 1
+            cursor += 1
+        if label_depth or cursor >= len(visible) or visible[cursor] != "(":
+            index = start + 1
+            continue
+        destination_start = cursor + 1
+        if destination_start >= len(visible):
+            index = start + 1
+            continue
+        if visible[destination_start] == "<":
+            raise CollectionError(f"angle-bracket link destinations are not allowed: {source}")
+        if visible[destination_start].isspace():
+            raise CollectionError(f"empty or unsupported link destination in {source}")
+        cursor = destination_start
+        destination_end: int | None = None
+        link_end: int | None = None
+        parenthesis_depth = 0
+        while cursor < len(visible):
+            character = visible[cursor]
+            if character in "\r\n":
+                break
+            if character == "(":
+                parenthesis_depth += 1
+            elif character == ")":
+                if parenthesis_depth:
+                    parenthesis_depth -= 1
+                else:
+                    destination_end = cursor
+                    link_end = cursor + 1
+                    break
+            elif character.isspace() and parenthesis_depth == 0:
+                destination_end = cursor
+                title = re.match(
+                    r"\s+(?:\"[^\"\r\n]*\"|'[^'\r\n]*')\s*\)",
+                    visible[cursor:],
+                )
+                if title:
+                    link_end = cursor + title.end()
+                break
+            cursor += 1
+        if destination_end is None or link_end is None:
+            raise CollectionError(f"unsupported inline link syntax in {source}")
+        destination = text[destination_start:destination_end]
+        if not destination:
+            raise CollectionError(f"empty link destination in {source}")
+        links.append(
+            MarkdownLink(
+                text[start:destination_start - 1],
+                destination,
+                destination_start,
+                destination_end,
+            )
+        )
+        index = link_end
+    return links
 
 
 def _git_object_kind(
@@ -480,9 +558,12 @@ def _rewrite(text: str, entry: Entry, selected: dict[tuple[str, str], Entry], ch
 
     rewritten = text
     for match in reversed(_markdown_link_matches(text, entry.source)):
-        label, raw = match.groups()
-        target = replacement(label, raw)
-        rewritten = rewritten[:match.start(2)] + target + rewritten[match.end(2):]
+        target = replacement(match.label, match.destination)
+        rewritten = (
+            rewritten[:match.destination_start]
+            + target
+            + rewritten[match.destination_end:]
+        )
     return rewritten
 
 
@@ -525,7 +606,7 @@ def assemble(manifest: Path, output: Path, pydasc: Path, dasc: Path) -> list[dic
                 if FORBIDDEN.search(body):
                     raise CollectionError(f"credential-like or local content: {entry.source}")
                 _validate_markdown_html(body, entry.source)
-                if REFERENCE_LINK_RE.search(body):
+                if REFERENCE_LINK_RE.search(_markdown_visible_text(body)):
                     raise CollectionError(f"reference-style links are not allowed: {entry.source}")
                 body = _rewrite(body, entry, selected, root)
                 encoded_source = quote(entry.source.as_posix(), safe="/")

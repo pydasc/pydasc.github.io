@@ -141,6 +141,14 @@ def test_angle_bracket_link_destinations_are_rejected(tmp_path,target):
  m,p,d=fixture(tmp_path,ptext=f"# P\n\n[Guide]({target})\n")
  with pytest.raises(CollectionError,match="angle-bracket link destinations"):assemble(m,tmp_path/"out",p,d)
 
+def test_nested_labels_and_balanced_destination_parentheses_are_rewritten(tmp_path):
+ m,p,d=fixture(tmp_path);(p/"README.md").write_text("# P\n\n[Nested [label]](guide(section).md \"Guide title\")\n");(p/"guide(section).md").write_text("# Guide\n");git(p,"add","README.md","guide(section).md");git(p,"commit","-qm","balanced link syntax");content=git(p,"rev-parse","HEAD");contract_path=p/"docs/publication-manifest.json";contract=json.loads(contract_path.read_text());contract["source_commit"]=content;contract_path.write_text(json.dumps(contract));git(p,"add","docs/publication-manifest.json");git(p,"commit","-qm","approve balanced link revision");data=yaml.safe_load(m.read_text());data["sources"]["pydasc"]["checkout_commit"]=git(p,"rev-parse","HEAD");m.write_text(yaml.safe_dump(data));out=tmp_path/"out";assemble(m,out,p,d);generated=(out/"pydasc/index.md").read_text()
+ assert f'[Nested [label]](https://github.com/pydasc/pydasc/blob/{content}/guide%28section%29.md "Guide title")' in generated
+
+def test_reference_definition_inside_code_is_ignored(tmp_path):
+ text="# P\n\n```markdown\n[guide]: missing.md\n```\n\n    [other]: missing.md\n"
+ m,p,d=fixture(tmp_path,ptext=text);out=tmp_path/"out";assemble(m,out,p,d);validate(m,out)
+
 def test_unlisted_link_target_must_exist_at_exact_content_commit(tmp_path):
  m,p,d=fixture(tmp_path);(p/"README.md").write_text("# P\n\n[Future](future.md)\n");git(p,"add","README.md");git(p,"commit","-qm","link before target");content=git(p,"rev-parse","HEAD");(p/"future.md").write_text("# Future\n");contract_path=p/"docs/publication-manifest.json";contract=json.loads(contract_path.read_text());contract["source_commit"]=content;contract_path.write_text(json.dumps(contract));git(p,"add","future.md","docs/publication-manifest.json");git(p,"commit","-qm","add target later")
  data=yaml.safe_load(m.read_text());data["sources"]["pydasc"]["checkout_commit"]=git(p,"rev-parse","HEAD");m.write_text(yaml.safe_dump(data))
