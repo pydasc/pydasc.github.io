@@ -16,7 +16,7 @@ from dataclasses import dataclass
 from html.parser import HTMLParser
 from pathlib import Path, PurePosixPath
 from typing import Any
-from urllib.parse import quote, unquote_to_bytes, urlsplit
+from urllib.parse import SplitResult, quote, unquote_to_bytes, urlsplit
 
 import yaml
 
@@ -188,6 +188,14 @@ def _decode_link_path(raw: str, source: PurePosixPath) -> PurePosixPath:
     if "\\" in decoded or any(ord(character) < 0x20 or ord(character) == 0x7f for character in decoded):
         raise CollectionError(f"unsafe link path {raw!r} in {source}")
     return PurePosixPath(decoded)
+
+
+def _split_link(raw: str, source: PurePosixPath) -> SplitResult:
+    """Parse an imported URL without exposing parser exceptions."""
+    try:
+        return urlsplit(raw)
+    except ValueError as exc:
+        raise CollectionError(f"invalid link URL {raw!r} in {source}") from exc
 
 
 def _git_object_kind(
@@ -371,7 +379,7 @@ def load_manifest(path: Path, checkouts: dict[str, Path] | None = None) -> list[
 def _rewrite(text: str, entry: Entry, selected: dict[tuple[str, str], Entry], checkout: Path) -> str:
     def replace(match: re.Match[str]) -> str:
         label, raw = match.groups()
-        parsed = urlsplit(raw)
+        parsed = _split_link(raw, entry.source)
         if parsed.scheme in {"http", "https", "mailto"} or raw.startswith("#"):
             return match.group(0)
         if parsed.scheme or parsed.netloc or raw.startswith("/"):

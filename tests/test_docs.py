@@ -124,6 +124,11 @@ def test_encoded_unsafe_or_invalid_link_paths_fail_cleanly(tmp_path,target):
  m,p,d=fixture(tmp_path,ptext=f"# P\n\n[Bad]({target})\n")
  with pytest.raises(CollectionError,match="link path"):assemble(m,tmp_path/"out",p,d)
 
+@pytest.mark.parametrize("target", ["//[invalid", "https://[invalid", "//example.com:bad]"])
+def test_malformed_link_authorities_fail_cleanly(tmp_path,target):
+ m,p,d=fixture(tmp_path,ptext=f"# P\n\n[Bad]({target})\n")
+ with pytest.raises(CollectionError,match="invalid link URL"):assemble(m,tmp_path/"out",p,d)
+
 def test_unlisted_link_target_must_exist_at_exact_content_commit(tmp_path):
  m,p,d=fixture(tmp_path);(p/"README.md").write_text("# P\n\n[Future](future.md)\n");git(p,"add","README.md");git(p,"commit","-qm","link before target");content=git(p,"rev-parse","HEAD");(p/"future.md").write_text("# Future\n");contract_path=p/"docs/publication-manifest.json";contract=json.loads(contract_path.read_text());contract["source_commit"]=content;contract_path.write_text(json.dumps(contract));git(p,"add","future.md","docs/publication-manifest.json");git(p,"commit","-qm","add target later")
  data=yaml.safe_load(m.read_text());data["sources"]["pydasc"]["checkout_commit"]=git(p,"rev-parse","HEAD");m.write_text(yaml.safe_dump(data))

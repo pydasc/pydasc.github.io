@@ -3,7 +3,7 @@
 from __future__ import annotations
 import argparse, hashlib, json, sys
 from pathlib import Path, PurePosixPath
-from urllib.parse import quote, urlsplit
+from urllib.parse import quote
 from collect_docs import (
     DOCUMENTATION_STATUSES,
     EXPECTED,
@@ -14,6 +14,7 @@ from collect_docs import (
     UNSAFE_ATTRIBUTION_RE,
     CollectionError,
     _decode_link_path,
+    _split_link,
     load_manifest,
 )
 
@@ -71,7 +72,7 @@ def validate(manifest: Path, docs: Path) -> None:
             banner = f"<!-- Generated; source={source_url}; status={item['status']}; license={item['license']}; attribution={item['attribution']}; do not edit. -->\n"
             if FORBIDDEN.search(text) or not text.startswith(banner): raise CollectionError(f"unsafe/missing provenance: {relative}")
             for match in LINK_RE.finditer(text):
-                raw = match.group(2); parsed = urlsplit(raw)
+                raw = match.group(2); parsed = _split_link(raw, PurePosixPath(relative))
                 if parsed.scheme in {"http", "https", "mailto"} or raw.startswith("#"): continue
                 if parsed.scheme or parsed.netloc or raw.startswith("/"): raise CollectionError(f"unsafe link: {relative}: {raw}")
                 if not parsed.path: continue
