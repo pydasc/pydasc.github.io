@@ -40,7 +40,8 @@ DOCUMENTATION_STATUSES = {
     "Draft", "Reviewed", "Reference", "Validated", "Unvalidated",
     "Superseded", "Released",
 }
-REFERENCE_LINK_RE = re.compile(r"^\s{0,3}\[(?!\^)[^\]]+\]:", re.MULTILINE)
+REFERENCE_DEFINITION_RE = re.compile(r"^ {0,3}\[(?!\^)[^\]\n]+\]:")
+CONTAINER_PREFIX_RE = re.compile(r"^ {0,3}(?:> ?|(?:[-+*]|\d+[.)]) +)")
 MARKDOWN_AUTOLINK_RE = re.compile(
     r"<(?:https?://[^<>\s]+|[^<>\s@]+@[^<>\s@]+)>"
 )
@@ -327,8 +328,6 @@ def _markdown_link_matches(text: str, source: PurePosixPath) -> list[MarkdownLin
         if destination_end is None or link_end is None:
             raise CollectionError(f"unsupported inline link syntax in {source}")
         destination = text[destination_start:destination_end]
-        if not destination:
-            raise CollectionError(f"empty link destination in {source}")
         links.append(
             MarkdownLink(
                 text[start:destination_start - 1],
@@ -339,6 +338,17 @@ def _markdown_link_matches(text: str, source: PurePosixPath) -> list[MarkdownLin
         )
         index = link_end
     return links
+
+
+def _has_reference_definition(text: str) -> bool:
+    """Recognize reference definitions inside supported block containers."""
+    for original_line in _markdown_visible_text(text).splitlines():
+        line = original_line
+        while prefix := CONTAINER_PREFIX_RE.match(line):
+            line = line[prefix.end():]
+        if REFERENCE_DEFINITION_RE.match(line):
+            return True
+    return False
 
 
 def _git_object_kind(
@@ -606,7 +616,7 @@ def assemble(manifest: Path, output: Path, pydasc: Path, dasc: Path) -> list[dic
                 if FORBIDDEN.search(body):
                     raise CollectionError(f"credential-like or local content: {entry.source}")
                 _validate_markdown_html(body, entry.source)
-                if REFERENCE_LINK_RE.search(_markdown_visible_text(body)):
+                if _has_reference_definition(body):
                     raise CollectionError(f"reference-style links are not allowed: {entry.source}")
                 body = _rewrite(body, entry, selected, root)
                 encoded_source = quote(entry.source.as_posix(), safe="/")

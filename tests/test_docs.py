@@ -119,6 +119,11 @@ def test_query_only_link_retains_current_page_semantics(tmp_path):
  assert "[View](?plain=1#details)" in (out/"pydasc/index.md").read_text()
  validate(m,out)
 
+def test_empty_link_retains_current_page_semantics(tmp_path):
+ m,p,d=fixture(tmp_path,ptext="# P\n\n[Current page]()\n");out=tmp_path/"out";assemble(m,out,p,d)
+ assert "[Current page]()" in (out/"pydasc/index.md").read_text()
+ validate(m,out)
+
 @pytest.mark.parametrize("target", ["bad%00.md", "bad%0A.md", "bad%7F.md", "bad%5Cname.md", "bad%FF.md", "bad%ZZ.md", "bad%.md"])
 def test_encoded_unsafe_or_invalid_link_paths_fail_cleanly(tmp_path,target):
  m,p,d=fixture(tmp_path,ptext=f"# P\n\n[Bad]({target})\n")
@@ -148,6 +153,11 @@ def test_nested_labels_and_balanced_destination_parentheses_are_rewritten(tmp_pa
 def test_reference_definition_inside_code_is_ignored(tmp_path):
  text="# P\n\n```markdown\n[guide]: missing.md\n```\n\n    [other]: missing.md\n"
  m,p,d=fixture(tmp_path,ptext=text);out=tmp_path/"out";assemble(m,out,p,d);validate(m,out)
+
+@pytest.mark.parametrize("definition", ["> [guide]: missing.md", "- [guide]: missing.md", "> - [guide]: missing.md", "1. > [guide]: missing.md"])
+def test_reference_definitions_inside_containers_are_rejected(tmp_path,definition):
+ m,p,d=fixture(tmp_path,ptext=f"# P\n\n{definition}\n\n[Guide][guide]\n")
+ with pytest.raises(CollectionError,match="reference-style links are not allowed"):assemble(m,tmp_path/"out",p,d)
 
 def test_unlisted_link_target_must_exist_at_exact_content_commit(tmp_path):
  m,p,d=fixture(tmp_path);(p/"README.md").write_text("# P\n\n[Future](future.md)\n");git(p,"add","README.md");git(p,"commit","-qm","link before target");content=git(p,"rev-parse","HEAD");(p/"future.md").write_text("# Future\n");contract_path=p/"docs/publication-manifest.json";contract=json.loads(contract_path.read_text());contract["source_commit"]=content;contract_path.write_text(json.dumps(contract));git(p,"add","future.md","docs/publication-manifest.json");git(p,"commit","-qm","add target later")
