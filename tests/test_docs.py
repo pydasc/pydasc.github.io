@@ -77,6 +77,7 @@ def test_source_lock_cli_skips_unapproved_candidate_without_changes(tmp_path,cap
  ("attribution", "attribution", "", "attribution"),
  ("attribution", "attribution", ["invalid"], "attribution"),
  ("attribution", "attribution", "<b>unsafe</b>", "attribution"),
+ ("attribution", "attribution", "invalid--comment", "attribution"),
 ])
 def test_dasc_decision_evidence_and_attribution_must_be_nonempty_strings(tmp_path, section, field, value, pattern):
  m,p,d=fixture(tmp_path);contract_path=d/"docs/publication-manifest.json";contract=json.loads(contract_path.read_text())
@@ -88,6 +89,11 @@ def test_dasc_decision_evidence_and_attribution_must_be_nonempty_strings(tmp_pat
 def test_unsafe_selection_rejected(tmp_path,value):
  m,p,d=fixture(tmp_path);data=yaml.safe_load(m.read_text());data["sources"]["pydasc"]["files"][0]["source"]=value;m.write_text(yaml.safe_dump(data));
  with pytest.raises(CollectionError):assemble(m,tmp_path/"out",p,d)
+
+@pytest.mark.parametrize("value", ["bad\nname.md", "bad\tname.md", "bad`name.md", "bad\x7fname.md"])
+def test_manifest_paths_reject_controls_and_markdown_delimiters(tmp_path,value):
+ m,p,d=fixture(tmp_path);data=yaml.safe_load(m.read_text());data["sources"]["pydasc"]["files"][0]["destination"]=f"pydasc/{value}";m.write_text(yaml.safe_dump(data))
+ with pytest.raises(CollectionError,match="POSIX path"):load_manifest(m)
 def test_unapproved_and_casefold_collision_rejected(tmp_path):
  m,p,d=fixture(tmp_path);data=yaml.safe_load(m.read_text());data["sources"]["pydasc"]["files"].append({"source":"README.md","destination":"pydasc/INDEX.md"});m.write_text(yaml.safe_dump(data));
  with pytest.raises(CollectionError,match="duplicate"):assemble(m,tmp_path/"out",p,d)
@@ -160,6 +166,11 @@ def test_reference_definition_inside_nested_superfence_is_ignored(tmp_path,fence
  text=f"# P\n\n{prefix}{fence}markdown\n{prefix}[guide]: missing.md\n{prefix}[example](missing.md)\n{prefix}![image](missing.png)\n{prefix}{fence}\n{prefix.rstrip()}\n{prefix}[Guide][guide]\n"
  m,p,d=fixture(tmp_path,ptext=text);out=tmp_path/"out";assemble(m,out,p,d);validate(m,out)
 
+@pytest.mark.parametrize("fence", ["```", "~~~"])
+def test_link_syntax_inside_list_superfence_is_ignored(tmp_path,fence):
+ text=f"# P\n\n- {fence}markdown\n  [example](missing.md)\n  ![image](missing.png)\n  {fence}\n"
+ m,p,d=fixture(tmp_path,ptext=text);out=tmp_path/"out";assemble(m,out,p,d);validate(m,out)
+
 @pytest.mark.parametrize("definition", ["> [guide]: missing.md", "- [guide]: missing.md", "> - [guide]: missing.md", "1. > [guide]: missing.md", "-\t[guide]: missing.md", ">\t[guide]: missing.md", ">\t-\t[guide]: missing.md", "> \t[guide]: missing.md", ">  \t[guide]: missing.md"])
 def test_reference_definitions_inside_containers_are_rejected(tmp_path,definition):
  m,p,d=fixture(tmp_path,ptext=f"# P\n\n{definition}\n\n[Guide][guide]\n")
@@ -190,6 +201,14 @@ def test_unlisted_link_target_cannot_be_a_git_symlink(tmp_path):
 def test_raw_html_is_rejected_from_imported_markdown(tmp_path, html):
  m,p,d=fixture(tmp_path,ptext=f"# P\n\n{html}\n")
  with pytest.raises(CollectionError,match="active raw HTML is not allowed"):assemble(m,tmp_path/"out",p,d)
+
+def test_raw_html_examples_inside_code_are_inert(tmp_path):
+ text="# P\n\n`<img src=tracker.png>`\n\n```html\n<script>alert(1)</script>\n```\n\n    <iframe src=tracker.html></iframe>\n"
+ m,p,d=fixture(tmp_path,ptext=text);out=tmp_path/"out";assemble(m,out,p,d);validate(m,out)
+
+def test_license_must_be_a_regular_git_blob(tmp_path):
+ m,p,d=fixture(tmp_path);license_path=p/"LICENSE";license_path.unlink();license_path.symlink_to("README.md");git(p,"add","LICENSE");git(p,"commit","-qm","symlink license");content=git(p,"rev-parse","HEAD");contract_path=p/"docs/publication-manifest.json";contract=json.loads(contract_path.read_text());contract["source_commit"]=content;contract_path.write_text(json.dumps(contract));git(p,"add","docs/publication-manifest.json");git(p,"commit","-qm","contract with symlink license");data=yaml.safe_load(m.read_text());data["sources"]["pydasc"]["checkout_commit"]=git(p,"rev-parse","HEAD");m.write_text(yaml.safe_dump(data))
+ with pytest.raises(CollectionError,match="unsafe license"):assemble(m,tmp_path/"out",p,d)
 
 @pytest.mark.parametrize("definition", ["[guide]: other.md", "[logo]: image.png"])
 def test_reference_style_links_are_rejected(tmp_path, definition):
@@ -246,6 +265,11 @@ def test_stale_generated_file_is_removed_only_inside_namespace(tmp_path):
 
 def test_unapproved_image_is_rejected(tmp_path):
  m,p,d=fixture(tmp_path,ptext="# P\n\n![License](LICENSE)\n")
+ with pytest.raises(CollectionError,match="image is not approved"):assemble(m,tmp_path/"out",p,d)
+
+@pytest.mark.parametrize("target", ["https://example.com/image.png", "http://example.com/image.png", "mailto:image@example.com", "#image", "?image=1", ""])
+def test_remote_images_are_rejected(tmp_path,target):
+ m,p,d=fixture(tmp_path,ptext=f"# P\n\n![Remote]({target})\n")
  with pytest.raises(CollectionError,match="image is not approved"):assemble(m,tmp_path/"out",p,d)
 
 def test_approved_image_is_relocated_and_copied(tmp_path):

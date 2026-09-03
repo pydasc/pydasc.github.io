@@ -73,9 +73,15 @@ def validate(manifest: Path, docs: Path) -> None:
             if FORBIDDEN.search(text) or not text.startswith(banner): raise CollectionError(f"unsafe/missing provenance: {relative}")
             for match in _markdown_link_matches(text, PurePosixPath(relative)):
                 raw = match.destination; parsed = _split_link(raw, PurePosixPath(relative))
-                if parsed.scheme in {"http", "https", "mailto"} or raw.startswith("#"): continue
+                if parsed.scheme in {"http", "https", "mailto"} or raw.startswith("#"):
+                    if match.label.startswith("!"):
+                        raise CollectionError(f"image is not approved: {relative}: {raw}")
+                    continue
                 if parsed.scheme or parsed.netloc or raw.startswith("/"): raise CollectionError(f"unsafe link: {relative}: {raw}")
-                if not parsed.path: continue
+                if not parsed.path:
+                    if match.label.startswith("!"):
+                        raise CollectionError(f"image is not approved: {relative}: {raw}")
+                    continue
                 decoded_path = _decode_link_path(parsed.path, PurePosixPath(relative))
                 target = path.parent.joinpath(*decoded_path.parts).resolve()
                 if not target.is_relative_to(docs) or not target.is_file(): raise CollectionError(f"broken link: {relative}: {raw}")

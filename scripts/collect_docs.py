@@ -18,8 +18,8 @@ from pathlib import Path, PurePosixPath
 from typing import Any
 from urllib.parse import SplitResult, quote, unquote_to_bytes, urlsplit
 
-import yaml
 import markdown
+import yaml
 
 EXPECTED = {
     "pydasc": "https://github.com/pydasc/pydasc",
@@ -45,6 +45,7 @@ MARKDOWN_AUTOLINK_RE = re.compile(
     r"<(?:https?://[^<>\s]+|[^<>\s@]+@[^<>\s@]+)>"
 )
 BLOCKQUOTE_PREFIX_RE = re.compile(r"^ {0,3}>[ \t]?")
+LIST_PREFIX_RE = re.compile(r"^ {0,3}(?:[-+*]|\d+[.)])[ \t]+")
 HTML_TAG_START_RE = re.compile(r"<\s*/?\s*[A-Za-z][A-Za-z0-9-]*")
 ACTIVE_HTML_TAGS = {
     "a", "audio", "base", "button", "canvas", "embed", "form", "iframe",
@@ -56,7 +57,7 @@ UNSAFE_HTML_ATTRIBUTES = {
     "formaction", "href", "longdesc", "manifest", "ping", "poster", "profile",
     "src", "srcset", "style", "usemap", "xlink:href",
 }
-UNSAFE_ATTRIBUTION_RE = re.compile(r"[\x00-\x1f<>\[\]]")
+UNSAFE_ATTRIBUTION_RE = re.compile(r"(?:[\x00-\x1f<>\[\]]|--)")
 FORBIDDEN = re.compile(r"(?:-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----|github_pat_[A-Za-z0-9_]+|ghp_[A-Za-z0-9]+|AKIA[0-9A-Z]{16}|/(?:Users|home)/[^\s)`]+|https?://(?:localhost|127\.0\.0\.1|[^/\s]+\.internal)(?:[/\s)]|$))")
 
 
@@ -162,7 +163,13 @@ def _mapping(value: object, keys: set[str], context: str) -> dict[str, Any]:
 
 
 def _path(value: object, context: str) -> PurePosixPath:
-    if not isinstance(value, str) or not value or "\0" in value or "\\" in value:
+    if (
+        not isinstance(value, str)
+        or not value
+        or "\\" in value
+        or "`" in value
+        or any(ord(character) < 0x20 or ord(character) == 0x7f for character in value)
+    ):
         raise CollectionError(f"{context} must be a non-empty POSIX path")
     result = PurePosixPath(value)
     if result.is_absolute() or any(part in {"", ".", ".."} for part in result.parts) or any(c in value for c in "*?["):
@@ -213,6 +220,7 @@ def _markdown_visible_text(text: str) -> str:
     fence_character = ""
     fence_length = 0
     fence_quote_depth = 0
+    fence_list_indent = 0
     offset = 0
     for line in text.splitlines(keepends=True):
         content = line
@@ -220,7 +228,16 @@ def _markdown_visible_text(text: str) -> str:
         while quote := BLOCKQUOTE_PREFIX_RE.match(content):
             content = content[quote.end():]
             quote_depth += 1
-        marker = re.match(r"^ {0,3}(`{3,}|~{3,})", content)
+        marker_content = content
+        list_indent = 0
+        if fenced and fence_list_indent:
+            indentation = re.match(r"^[ ]+", marker_content)
+            if indentation and len(indentation.group(0)) >= fence_list_indent:
+                marker_content = marker_content[fence_list_indent:]
+        elif not fenced and (list_prefix := LIST_PREFIX_RE.match(marker_content)):
+            list_indent = list_prefix.end()
+            marker_content = marker_content[list_indent:]
+        marker = re.match(r"^ {0,3}(`{3,}|~{3,})", marker_content)
         if fenced:
             masked[offset:offset + len(line)] = " " * len(line)
             if (
@@ -228,7 +245,7 @@ def _markdown_visible_text(text: str) -> str:
                 and quote_depth == fence_quote_depth
                 and marker.group(1)[0] == fence_character
                 and len(marker.group(1)) >= fence_length
-                and not content[marker.end():].strip()
+                and not marker_content[marker.end():].strip()
             ):
                 fenced = False
         elif marker:
@@ -236,6 +253,7 @@ def _markdown_visible_text(text: str) -> str:
             fence_character = marker.group(1)[0]
             fence_length = len(marker.group(1))
             fence_quote_depth = quote_depth
+            fence_list_indent = list_indent
             masked[offset:offset + len(line)] = " " * len(line)
         elif line.startswith(("    ", "\t")):
             masked[offset:offset + len(line)] = " " * len(line)
@@ -465,6 +483,8 @@ def _source_contract(
         ):
             raise CollectionError(f"invalid attribution for {source}")
         license_path = _path(rights["license_file"], "license_file")
+        if _git_object_kind(path.parents[1], content, license_path) != "blob":
+            raise CollectionError(f"missing or unsafe license at approved commit for {source}")
         license_bytes = _git(path.parents[1], "show", f"{content}:{license_path.as_posix()}", binary=True)
         if not license_bytes:
             raise CollectionError(f"missing license at approved commit for {source}")
@@ -540,10 +560,14 @@ def _rewrite(text: str, entry: Entry, selected: dict[tuple[str, str], Entry], ch
     def replacement(label: str, raw: str) -> str:
         parsed = _split_link(raw, entry.source)
         if parsed.scheme in {"http", "https", "mailto"} or raw.startswith("#"):
+            if label.startswith("!"):
+                raise CollectionError(f"image is not approved: {raw}")
             return raw
         if parsed.scheme or parsed.netloc or raw.startswith("/"):
             raise CollectionError(f"unsafe link {raw!r} in {entry.source}")
         if not parsed.path:
+            if label.startswith("!"):
+                raise CollectionError(f"image is not approved: {raw}")
             return raw
         relative_path = _decode_link_path(parsed.path, entry.source)
         parts: list[str] = []
@@ -609,6 +633,8 @@ def assemble(manifest: Path, output: Path, pydasc: Path, dasc: Path) -> list[dic
                 raise CollectionError(f"unsafe or missing source: {entry.source}")
             if source.stat().st_size > MAX_FILE_BYTES:
                 raise CollectionError(f"oversized source: {entry.source}")
+            if _git_object_kind(root, entry.content_commit, entry.source) != "blob":
+                raise CollectionError(f"source is not a regular Git blob: {entry.source}")
             committed = _git(root, "show", f"{entry.content_commit}:{entry.source.as_posix()}", binary=True)
             if source.read_bytes() != committed:
                 raise CollectionError(f"source differs from approved commit: {entry.source}")
@@ -622,7 +648,7 @@ def assemble(manifest: Path, output: Path, pydasc: Path, dasc: Path) -> list[dic
                     raise CollectionError(f"non-UTF-8 Markdown: {entry.source}") from exc
                 if FORBIDDEN.search(body):
                     raise CollectionError(f"credential-like or local content: {entry.source}")
-                _validate_markdown_html(body, entry.source)
+                _validate_markdown_html(_markdown_visible_text(body), entry.source)
                 if _has_reference_definition(body):
                     raise CollectionError(f"reference-style links are not allowed: {entry.source}")
                 body = _rewrite(body, entry, selected, root)
