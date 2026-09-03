@@ -114,6 +114,16 @@ def test_rewritten_links_url_encode_decoded_path_characters(tmp_path):
  assert f"]({source_url})" in selected_page
  validate(m,out)
 
+def test_query_only_link_retains_current_page_semantics(tmp_path):
+ m,p,d=fixture(tmp_path,ptext="# P\n\n[View](?plain=1#details)\n");out=tmp_path/"out";assemble(m,out,p,d)
+ assert "[View](?plain=1#details)" in (out/"pydasc/index.md").read_text()
+ validate(m,out)
+
+@pytest.mark.parametrize("target", ["bad%00.md", "bad%0A.md", "bad%7F.md", "bad%5Cname.md", "bad%FF.md", "bad%ZZ.md", "bad%.md"])
+def test_encoded_unsafe_or_invalid_link_paths_fail_cleanly(tmp_path,target):
+ m,p,d=fixture(tmp_path,ptext=f"# P\n\n[Bad]({target})\n")
+ with pytest.raises(CollectionError,match="link path"):assemble(m,tmp_path/"out",p,d)
+
 def test_unlisted_link_target_must_exist_at_exact_content_commit(tmp_path):
  m,p,d=fixture(tmp_path);(p/"README.md").write_text("# P\n\n[Future](future.md)\n");git(p,"add","README.md");git(p,"commit","-qm","link before target");content=git(p,"rev-parse","HEAD");(p/"future.md").write_text("# Future\n");contract_path=p/"docs/publication-manifest.json";contract=json.loads(contract_path.read_text());contract["source_commit"]=content;contract_path.write_text(json.dumps(contract));git(p,"add","future.md","docs/publication-manifest.json");git(p,"commit","-qm","add target later")
  data=yaml.safe_load(m.read_text());data["sources"]["pydasc"]["checkout_commit"]=git(p,"rev-parse","HEAD");m.write_text(yaml.safe_dump(data))

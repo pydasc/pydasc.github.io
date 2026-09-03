@@ -16,7 +16,7 @@ from dataclasses import dataclass
 from html.parser import HTMLParser
 from pathlib import Path, PurePosixPath
 from typing import Any
-from urllib.parse import quote, unquote, urlsplit
+from urllib.parse import quote, unquote_to_bytes, urlsplit
 
 import yaml
 
@@ -172,9 +172,22 @@ def _read_yaml(path: Path) -> dict[str, Any]:
 def _git(repo: Path, *args: str, binary: bool = False) -> str | bytes:
     try:
         result = subprocess.run(["git", *args], cwd=repo, check=True, capture_output=True, text=not binary)
-    except (OSError, subprocess.CalledProcessError) as exc:
+    except (OSError, ValueError, subprocess.CalledProcessError) as exc:
         raise CollectionError(f"git inspection failed in {repo.name}") from exc
     return result.stdout
+
+
+def _decode_link_path(raw: str, source: PurePosixPath) -> PurePosixPath:
+    """Strictly decode and validate an imported relative URL path."""
+    if re.search(r"%(?![0-9A-Fa-f]{2})", raw):
+        raise CollectionError(f"invalid percent escape in link path: {raw!r}")
+    try:
+        decoded = unquote_to_bytes(raw).decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise CollectionError(f"link path is not valid UTF-8: {raw!r}") from exc
+    if "\\" in decoded or any(ord(character) < 0x20 or ord(character) == 0x7f for character in decoded):
+        raise CollectionError(f"unsafe link path {raw!r} in {source}")
+    return PurePosixPath(decoded)
 
 
 def _git_object_kind(
@@ -363,8 +376,11 @@ def _rewrite(text: str, entry: Entry, selected: dict[tuple[str, str], Entry], ch
             return match.group(0)
         if parsed.scheme or parsed.netloc or raw.startswith("/"):
             raise CollectionError(f"unsafe link {raw!r} in {entry.source}")
+        if not parsed.path:
+            return match.group(0)
+        relative_path = _decode_link_path(parsed.path, entry.source)
         parts: list[str] = []
-        for part in entry.source.parent.joinpath(PurePosixPath(unquote(parsed.path))).parts:
+        for part in entry.source.parent.joinpath(relative_path).parts:
             if part == "..":
                 if not parts:
                     raise CollectionError(f"link escapes repository: {raw}")

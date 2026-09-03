@@ -2,8 +2,8 @@
 """Validate assembled docs and checksummed inventory."""
 from __future__ import annotations
 import argparse, hashlib, json, sys
-from pathlib import Path
-from urllib.parse import quote, unquote, urlsplit
+from pathlib import Path, PurePosixPath
+from urllib.parse import quote, urlsplit
 from collect_docs import (
     DOCUMENTATION_STATUSES,
     EXPECTED,
@@ -13,6 +13,7 @@ from collect_docs import (
     SPDX_RE,
     UNSAFE_ATTRIBUTION_RE,
     CollectionError,
+    _decode_link_path,
     load_manifest,
 )
 
@@ -73,7 +74,9 @@ def validate(manifest: Path, docs: Path) -> None:
                 raw = match.group(2); parsed = urlsplit(raw)
                 if parsed.scheme in {"http", "https", "mailto"} or raw.startswith("#"): continue
                 if parsed.scheme or parsed.netloc or raw.startswith("/"): raise CollectionError(f"unsafe link: {relative}: {raw}")
-                target = (path.parent / unquote(parsed.path)).resolve()
+                if not parsed.path: continue
+                decoded_path = _decode_link_path(parsed.path, PurePosixPath(relative))
+                target = path.parent.joinpath(*decoded_path.parts).resolve()
                 if not target.is_relative_to(docs) or not target.is_file(): raise CollectionError(f"broken link: {relative}: {raw}")
 
 def main() -> int:
