@@ -34,11 +34,13 @@ def test_dirty_publication_manifest_rejected(tmp_path):
  m,p,d=fixture(tmp_path);contract_path=p/"docs/publication-manifest.json";contract=json.loads(contract_path.read_text());contract["files"][0]["documentation_status"]["evidence"]="uncommitted approval";contract_path.write_text(json.dumps(contract))
  with pytest.raises(CollectionError,match="differs from locked commit"):assemble(m,tmp_path/"out",p,d)
 
-def test_transferred_repository_identity_is_accepted_only_for_allowlisted_contract_commit(tmp_path, monkeypatch):
+def test_transferred_repository_identity_is_accepted_from_exact_alias(tmp_path):
  m,p,d=fixture(tmp_path);contract_path=p/"docs/publication-manifest.json";contract=json.loads(contract_path.read_text());contract["repository"]="https://github.com/chongshikpark/pydasc";contract_path.write_text(json.dumps(contract));git(p,"add","docs/publication-manifest.json");git(p,"commit","-qm","pre-transfer contract");commit=git(p,"rev-parse","HEAD");data=yaml.safe_load(m.read_text());data["sources"]["pydasc"]["checkout_commit"]=commit;m.write_text(yaml.safe_dump(data))
- with pytest.raises(CollectionError,match="publication identity"):assemble(m,tmp_path/"rejected",p,d)
- monkeypatch.setitem(collect_docs.LEGACY_CONTRACT_REPOSITORIES["pydasc"],commit,"https://github.com/chongshikpark/pydasc")
  assemble(m,tmp_path/"accepted",p,d)
+
+def test_unrecognized_repository_identity_is_rejected(tmp_path):
+ m,p,d=fixture(tmp_path);contract_path=p/"docs/publication-manifest.json";contract=json.loads(contract_path.read_text());contract["repository"]="https://github.com/example/pydasc";contract_path.write_text(json.dumps(contract));git(p,"add","docs/publication-manifest.json");git(p,"commit","-qm","unrecognized repository");data=yaml.safe_load(m.read_text());data["sources"]["pydasc"]["checkout_commit"]=git(p,"rev-parse","HEAD");m.write_text(yaml.safe_dump(data))
+ with pytest.raises(CollectionError,match="publication identity"):assemble(m,tmp_path/"rejected",p,d)
 
 @pytest.mark.parametrize("collision", ["source", "destination"])
 def test_duplicate_upstream_contract_paths_rejected_case_insensitively(tmp_path, collision):
@@ -55,6 +57,12 @@ def test_source_lock_update_validates_candidate_and_changes_only_commit(tmp_path
  assert after["sources"]["pydasc"]["checkout_commit"]==git(p,"rev-parse","HEAD")
  before["sources"]["pydasc"]["checkout_commit"]=git(p,"rev-parse","HEAD")
  assert after==before
+
+def test_source_lock_update_accepts_transferred_repository_contract_alias(tmp_path):
+ m,p,d=fixture(tmp_path);contract_path=p/"docs/publication-manifest.json";contract=json.loads(contract_path.read_text());contract["repository"]="https://github.com/chongshikpark/pydasc";contract_path.write_text(json.dumps(contract));git(p,"add","docs/publication-manifest.json");git(p,"commit","-qm","transferred repository contract")
+ previous=yaml.safe_load(m.read_text())["sources"]["pydasc"]["checkout_commit"]
+ changes=update_source_locks(m,{"pydasc":p,"dasc":d})
+ assert changes=={"pydasc":(previous,git(p,"rev-parse","HEAD"))}
 
 def test_source_lock_cli_skips_unapproved_candidate_without_changes(tmp_path,capsys):
  m,p,d=fixture(tmp_path);before=m.read_bytes();contract_path=d/"docs/publication-manifest.json";contract=json.loads(contract_path.read_text());contract["publication_decision"]["state"]="draft";contract_path.write_text(json.dumps(contract));git(d,"add",str(contract_path.relative_to(d)));git(d,"commit","-qm","draft contract")
@@ -87,6 +95,23 @@ def test_broken_link_and_credential_rejected(tmp_path):
  for text,pattern in (("[bad](missing.md)\n","broken"),("github_pat_secret\n","credential")):
   root=tmp_path/pattern;root.mkdir();m,p,d=fixture(root,ptext=text)
   with pytest.raises(CollectionError,match=pattern):assemble(m,root/"out",p,d)
+
+def test_relative_links_relocate_or_use_exact_immutable_source_revision(tmp_path):
+ m,p,d=fixture(tmp_path);(p/"README.md").write_text("# P\n\n[Guide](guide.md?view=full#intro)\n[Notes](notes.md?raw=1#top)\n");(p/"guide.md").write_text("# Guide\n");(p/"notes.md").write_text("# Notes\n");git(p,"add","README.md","guide.md","notes.md");git(p,"commit","-qm","linked content");content=git(p,"rev-parse","HEAD")
+ contract_path=p/"docs/publication-manifest.json";contract=json.loads(contract_path.read_text());contract["source_commit"]=content;contract["files"].append({"source":"guide.md","destination":"pydasc/guides/guide.md","media_type":"text/markdown","documentation_status":{"label":"Reviewed","evidence":"test"},"redistribution":{"spdx_license":"MIT","license_file":"LICENSE"}});contract_path.write_text(json.dumps(contract));git(p,"add","docs/publication-manifest.json");git(p,"commit","-qm","approve linked content")
+ data=yaml.safe_load(m.read_text());data["sources"]["pydasc"]["checkout_commit"]=git(p,"rev-parse","HEAD");data["sources"]["pydasc"]["files"].append({"source":"guide.md","destination":"pydasc/guides/guide.md"});m.write_text(yaml.safe_dump(data));out=tmp_path/"out";assemble(m,out,p,d);generated=(out/"pydasc/index.md").read_text()
+ assert "[Guide](guides/guide.md?view=full#intro)" in generated
+ assert f"[Notes](https://github.com/pydasc/pydasc/blob/{content}/notes.md?raw=1#top)" in generated
+
+def test_unlisted_link_target_must_exist_at_exact_content_commit(tmp_path):
+ m,p,d=fixture(tmp_path);(p/"README.md").write_text("# P\n\n[Future](future.md)\n");git(p,"add","README.md");git(p,"commit","-qm","link before target");content=git(p,"rev-parse","HEAD");(p/"future.md").write_text("# Future\n");contract_path=p/"docs/publication-manifest.json";contract=json.loads(contract_path.read_text());contract["source_commit"]=content;contract_path.write_text(json.dumps(contract));git(p,"add","future.md","docs/publication-manifest.json");git(p,"commit","-qm","add target later")
+ data=yaml.safe_load(m.read_text());data["sources"]["pydasc"]["checkout_commit"]=git(p,"rev-parse","HEAD");m.write_text(yaml.safe_dump(data))
+ with pytest.raises(CollectionError,match="broken or unsafe relative link"):assemble(m,tmp_path/"out",p,d)
+
+def test_unlisted_link_target_cannot_be_a_git_symlink(tmp_path):
+ m,p,d=fixture(tmp_path);(p/"README.md").write_text("# P\n\n[Alias](alias.md)\n");(p/"target.md").write_text("# Target\n");(p/"alias.md").symlink_to("target.md");git(p,"add","README.md","target.md","alias.md");git(p,"commit","-qm","symlink target");content=git(p,"rev-parse","HEAD");contract_path=p/"docs/publication-manifest.json";contract=json.loads(contract_path.read_text());contract["source_commit"]=content;contract_path.write_text(json.dumps(contract));git(p,"add","docs/publication-manifest.json");git(p,"commit","-qm","approve symlink source revision")
+ data=yaml.safe_load(m.read_text());data["sources"]["pydasc"]["checkout_commit"]=git(p,"rev-parse","HEAD");m.write_text(yaml.safe_dump(data))
+ with pytest.raises(CollectionError,match="broken or unsafe relative link"):assemble(m,tmp_path/"out",p,d)
 
 @pytest.mark.parametrize("html", [
  "<script>alert(1)</script>",

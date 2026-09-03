@@ -24,18 +24,12 @@ EXPECTED = {
     "pydasc": "https://github.com/pydasc/pydasc",
     "dasc": "https://github.com/pydasc/dasc",
 }
-# Repository transfers preserve commit IDs. These two reviewed contract commits
-# predate the transfer and therefore retain their former repository identity.
-# Keep the exception commit-specific so no future contract can silently use it.
+# Repository transfers preserve history, but the source repositories currently
+# publish contracts bearing their former URLs. Accept only these exact aliases;
+# the website manifest and fetch workflows still require the canonical org URLs.
 LEGACY_CONTRACT_REPOSITORIES = {
-    "pydasc": {
-        "0506b8a9feb75813ae979f0c1c25a307b21096d2":
-            "https://github.com/chongshikpark/pydasc",
-    },
-    "dasc": {
-        "94033eae4d8eac81f4c42c41f6cfba69e1cd2a25":
-            "https://github.com/chongshikpark/dasc",
-    },
+    "pydasc": "https://github.com/chongshikpark/pydasc",
+    "dasc": "https://github.com/chongshikpark/dasc",
 }
 ALLOWED = {".md", ".png", ".jpg", ".jpeg", ".webp"}
 MEDIA = {".md": "text/markdown", ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".webp": "image/webp"}
@@ -183,6 +177,35 @@ def _git(repo: Path, *args: str, binary: bool = False) -> str | bytes:
     return result.stdout
 
 
+def _git_object_kind(
+    repo: Path, commit: str, path: PurePosixPath
+) -> str | None:
+    """Return the safe Git object type for an exact path at an exact commit."""
+    raw = _git(
+        repo,
+        "ls-tree",
+        "-z",
+        "--full-tree",
+        commit,
+        "--",
+        path.as_posix(),
+        binary=True,
+    )
+    assert isinstance(raw, bytes)
+    expected = path.as_posix().encode("utf-8")
+    for record in raw.split(b"\0"):
+        if not record:
+            continue
+        metadata, separator, encoded_path = record.partition(b"\t")
+        fields = metadata.split()
+        if separator and encoded_path == expected and len(fields) == 3:
+            mode, object_type, _ = fields
+            if mode == b"120000" or object_type not in {b"blob", b"tree"}:
+                return None
+            return object_type.decode("ascii")
+    return None
+
+
 def _inside(path: Path, root: Path) -> bool:
     try:
         path.relative_to(root)
@@ -208,9 +231,10 @@ def _source_contract(
     if name == "dasc":
         root_keys.add("publication_decision")
     root = _mapping(raw, root_keys, f"{name} publication manifest")
-    accepted_repository = root["repository"] == repository or root["repository"] == (
-        LEGACY_CONTRACT_REPOSITORIES[name].get(checkout)
-    )
+    accepted_repository = root["repository"] in {
+        repository,
+        LEGACY_CONTRACT_REPOSITORIES[name],
+    }
     if root["schema_version"] != 1 or root["project"] != name or not accepted_repository:
         raise CollectionError(f"invalid {name} publication identity/schema")
     content = root["source_commit"]
@@ -352,12 +376,11 @@ def _rewrite(text: str, entry: Entry, selected: dict[tuple[str, str], Entry], ch
         if approved:
             target = os.path.relpath(approved.destination.as_posix(), entry.destination.parent.as_posix()).replace(os.sep, "/")
         else:
-            candidate = checkout.joinpath(*normalized.parts)
-            if candidate.is_symlink() or not candidate.exists() or not _inside(candidate.resolve(), checkout.resolve()):
+            kind = _git_object_kind(checkout, entry.content_commit, normalized)
+            if kind is None:
                 raise CollectionError(f"broken or unsafe relative link: {raw}")
             if label.startswith("!"):
                 raise CollectionError(f"image is not approved: {raw}")
-            kind = "tree" if candidate.is_dir() else "blob"
             target = f"{entry.repository}/{kind}/{entry.content_commit}/{normalized.as_posix()}"
         suffix = (f"?{parsed.query}" if parsed.query else "") + (f"#{parsed.fragment}" if parsed.fragment else "")
         return f"{label}({target}{suffix})"
