@@ -41,6 +41,7 @@ DOCUMENTATION_STATUSES = {
     "Superseded", "Released",
 }
 LINK_RE = re.compile(r"(!?\[[^\]]*\])\(([^)\s]+)(?:\s+['\"][^)]*['\"])?\)")
+ANGLE_LINK_RE = re.compile(r"!?\[[^\]\n]*\]\(\s*<")
 REFERENCE_LINK_RE = re.compile(r"^\s{0,3}\[(?!\^)[^\]]+\]:", re.MULTILINE)
 MARKDOWN_AUTOLINK_RE = re.compile(
     r"<(?:https?://[^<>\s]+|[^<>\s@]+@[^<>\s@]+)>"
@@ -196,6 +197,70 @@ def _split_link(raw: str, source: PurePosixPath) -> SplitResult:
         return urlsplit(raw)
     except ValueError as exc:
         raise CollectionError(f"invalid link URL {raw!r} in {source}") from exc
+
+
+def _markdown_link_matches(text: str, source: PurePosixPath) -> list[re.Match[str]]:
+    """Find supported rendered links while excluding Markdown code and escapes."""
+    masked = list(text)
+    fenced = False
+    fence_character = ""
+    fence_length = 0
+    offset = 0
+    for line in text.splitlines(keepends=True):
+        marker = re.match(r"^ {0,3}(`{3,}|~{3,})", line)
+        if fenced:
+            masked[offset:offset + len(line)] = " " * len(line)
+            if (
+                marker
+                and marker.group(1)[0] == fence_character
+                and len(marker.group(1)) >= fence_length
+                and not line[marker.end():].strip()
+            ):
+                fenced = False
+        elif marker:
+            fenced = True
+            fence_character = marker.group(1)[0]
+            fence_length = len(marker.group(1))
+            masked[offset:offset + len(line)] = " " * len(line)
+        elif line.startswith(("    ", "\t")):
+            masked[offset:offset + len(line)] = " " * len(line)
+        offset += len(line)
+
+    scan = "".join(masked)
+    index = 0
+    while index < len(scan):
+        if scan[index] == "\\":
+            masked[index] = " "
+            if index + 1 < len(scan):
+                masked[index + 1] = " "
+            index += 2
+            continue
+        if scan[index] == "`":
+            end = index
+            while end < len(scan) and scan[end] == "`":
+                end += 1
+            delimiter = scan[index:end]
+            closing = end
+            while True:
+                closing = scan.find(delimiter, closing)
+                if closing < 0:
+                    break
+                before_matches = closing == 0 or scan[closing - 1] != "`"
+                after = closing + len(delimiter)
+                after_matches = after == len(scan) or scan[after] != "`"
+                if before_matches and after_matches:
+                    break
+                closing = after
+            if closing >= 0:
+                masked[index:closing + len(delimiter)] = " " * (closing + len(delimiter) - index)
+                index = closing + len(delimiter)
+                continue
+        index += 1
+
+    visible = "".join(masked)
+    if ANGLE_LINK_RE.search(visible):
+        raise CollectionError(f"angle-bracket link destinations are not allowed: {source}")
+    return list(LINK_RE.finditer(visible))
 
 
 def _git_object_kind(
@@ -377,15 +442,14 @@ def load_manifest(path: Path, checkouts: dict[str, Path] | None = None) -> list[
 
 
 def _rewrite(text: str, entry: Entry, selected: dict[tuple[str, str], Entry], checkout: Path) -> str:
-    def replace(match: re.Match[str]) -> str:
-        label, raw = match.groups()
+    def replacement(label: str, raw: str) -> str:
         parsed = _split_link(raw, entry.source)
         if parsed.scheme in {"http", "https", "mailto"} or raw.startswith("#"):
-            return match.group(0)
+            return raw
         if parsed.scheme or parsed.netloc or raw.startswith("/"):
             raise CollectionError(f"unsafe link {raw!r} in {entry.source}")
         if not parsed.path:
-            return match.group(0)
+            return raw
         relative_path = _decode_link_path(parsed.path, entry.source)
         parts: list[str] = []
         for part in entry.source.parent.joinpath(relative_path).parts:
@@ -412,8 +476,14 @@ def _rewrite(text: str, entry: Entry, selected: dict[tuple[str, str], Entry], ch
             encoded_path = quote(normalized.as_posix(), safe="/")
             target = f"{entry.repository}/{kind}/{entry.content_commit}/{encoded_path}"
         suffix = (f"?{parsed.query}" if parsed.query else "") + (f"#{parsed.fragment}" if parsed.fragment else "")
-        return f"{label}({target}{suffix})"
-    return LINK_RE.sub(replace, text)
+        return f"{target}{suffix}"
+
+    rewritten = text
+    for match in reversed(_markdown_link_matches(text, entry.source)):
+        label, raw = match.groups()
+        target = replacement(label, raw)
+        rewritten = rewritten[:match.start(2)] + target + rewritten[match.end(2):]
+    return rewritten
 
 
 def _tree_state(repo: Path) -> tuple[str, tuple[tuple[str, str], ...]]:
