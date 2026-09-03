@@ -3,7 +3,7 @@
 from __future__ import annotations
 import argparse, hashlib, json, sys
 from pathlib import Path
-from urllib.parse import unquote, urlsplit
+from urllib.parse import quote, unquote, urlsplit
 from collect_docs import (
     DOCUMENTATION_STATUSES,
     EXPECTED,
@@ -63,7 +63,10 @@ def validate(manifest: Path, docs: Path) -> None:
         if hashlib.sha256(path.read_bytes()).hexdigest() != item["sha256"]: raise CollectionError(f"checksum mismatch: {relative}")
         if path.suffix == ".md":
             text = path.read_text(encoding="utf-8")
-            source_url = f"{item['repository']}/blob/{item['commit']}/{item['source']}"
+            encoded_source = quote(item["source"], safe="/")
+            source_url = (
+                f"{item['repository']}/blob/{item['commit']}/{encoded_source}"
+            )
             banner = f"<!-- Generated; source={source_url}; status={item['status']}; license={item['license']}; attribution={item['attribution']}; do not edit. -->\n"
             if FORBIDDEN.search(text) or not text.startswith(banner): raise CollectionError(f"unsafe/missing provenance: {relative}")
             for match in LINK_RE.finditer(text):

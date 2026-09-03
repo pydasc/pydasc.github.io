@@ -434,7 +434,10 @@ def assemble(manifest: Path, output: Path, pydasc: Path, dasc: Path) -> list[dic
                 if REFERENCE_LINK_RE.search(body):
                     raise CollectionError(f"reference-style links are not allowed: {entry.source}")
                 body = _rewrite(body, entry, selected, root)
-                source_url = f"{entry.repository}/blob/{entry.content_commit}/{entry.source.as_posix()}"
+                encoded_source = quote(entry.source.as_posix(), safe="/")
+                source_url = (
+                    f"{entry.repository}/blob/{entry.content_commit}/{encoded_source}"
+                )
                 project = "PyDASC" if entry.source_name == "pydasc" else "DASC"
                 banner = f"<!-- Generated; source={source_url}; status={entry.status}; license={entry.license_id}; attribution={entry.attribution}; do not edit. -->\n\n"
                 attribution = (

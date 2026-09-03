@@ -109,6 +109,10 @@ def test_rewritten_links_url_encode_decoded_path_characters(tmp_path):
  data=yaml.safe_load(m.read_text());data["sources"]["pydasc"]["checkout_commit"]=git(p,"rev-parse","HEAD");data["sources"]["pydasc"]["files"].append({"source":selected.name,"destination":"pydasc/guides/selected (한글)#.md"});m.write_text(yaml.safe_dump(data));out=tmp_path/"out";assemble(m,out,p,d);generated=(out/"pydasc/index.md").read_text()
  assert "[Selected](guides/selected%20%28%ED%95%9C%EA%B8%80%29%23.md#section)" in generated
  assert f"[Other](https://github.com/pydasc/pydasc/blob/{content}/other%20%28%ED%95%9C%EA%B8%80%29%23%3F.md?raw=1#top)" in generated
+ selected_page=(out/"pydasc/guides/selected (한글)#.md").read_text();encoded_source="selected%20%28%ED%95%9C%EA%B8%80%29%23.md";source_url=f"https://github.com/pydasc/pydasc/blob/{content}/{encoded_source}"
+ assert f"source={source_url};" in selected_page
+ assert f"]({source_url})" in selected_page
+ validate(m,out)
 
 def test_unlisted_link_target_must_exist_at_exact_content_commit(tmp_path):
  m,p,d=fixture(tmp_path);(p/"README.md").write_text("# P\n\n[Future](future.md)\n");git(p,"add","README.md");git(p,"commit","-qm","link before target");content=git(p,"rev-parse","HEAD");(p/"future.md").write_text("# Future\n");contract_path=p/"docs/publication-manifest.json";contract=json.loads(contract_path.read_text());contract["source_commit"]=content;contract_path.write_text(json.dumps(contract));git(p,"add","future.md","docs/publication-manifest.json");git(p,"commit","-qm","add target later")
