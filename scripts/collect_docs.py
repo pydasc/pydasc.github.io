@@ -44,6 +44,7 @@ DOCUMENTATION_STATUSES = {
 MARKDOWN_AUTOLINK_RE = re.compile(
     r"<(?:https?://[^<>\s]+|[^<>\s@]+@[^<>\s@]+)>"
 )
+BLOCKQUOTE_PREFIX_RE = re.compile(r"^ {0,3}>[ \t]?")
 HTML_TAG_START_RE = re.compile(r"<\s*/?\s*[A-Za-z][A-Za-z0-9-]*")
 ACTIVE_HTML_TAGS = {
     "a", "audio", "base", "button", "canvas", "embed", "form", "iframe",
@@ -211,22 +212,30 @@ def _markdown_visible_text(text: str) -> str:
     fenced = False
     fence_character = ""
     fence_length = 0
+    fence_quote_depth = 0
     offset = 0
     for line in text.splitlines(keepends=True):
-        marker = re.match(r"^ {0,3}(`{3,}|~{3,})", line)
+        content = line
+        quote_depth = 0
+        while quote := BLOCKQUOTE_PREFIX_RE.match(content):
+            content = content[quote.end():]
+            quote_depth += 1
+        marker = re.match(r"^ {0,3}(`{3,}|~{3,})", content)
         if fenced:
             masked[offset:offset + len(line)] = " " * len(line)
             if (
                 marker
+                and quote_depth == fence_quote_depth
                 and marker.group(1)[0] == fence_character
                 and len(marker.group(1)) >= fence_length
-                and not line[marker.end():].strip()
+                and not content[marker.end():].strip()
             ):
                 fenced = False
         elif marker:
             fenced = True
             fence_character = marker.group(1)[0]
             fence_length = len(marker.group(1))
+            fence_quote_depth = quote_depth
             masked[offset:offset + len(line)] = " " * len(line)
         elif line.startswith(("    ", "\t")):
             masked[offset:offset + len(line)] = " " * len(line)

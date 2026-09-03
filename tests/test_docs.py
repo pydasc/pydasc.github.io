@@ -155,8 +155,9 @@ def test_reference_definition_inside_code_is_ignored(tmp_path):
  m,p,d=fixture(tmp_path,ptext=text);out=tmp_path/"out";assemble(m,out,p,d);validate(m,out)
 
 @pytest.mark.parametrize("fence", ["```", "~~~"])
-def test_reference_definition_inside_nested_superfence_is_ignored(tmp_path,fence):
- text=f"# P\n\n> {fence}markdown\n> [guide]: missing.md\n> {fence}\n>\n> [Guide][guide]\n"
+@pytest.mark.parametrize("prefix", ["> ", "> > "])
+def test_reference_definition_inside_nested_superfence_is_ignored(tmp_path,fence,prefix):
+ text=f"# P\n\n{prefix}{fence}markdown\n{prefix}[guide]: missing.md\n{prefix}[example](missing.md)\n{prefix}![image](missing.png)\n{prefix}{fence}\n{prefix.rstrip()}\n{prefix}[Guide][guide]\n"
  m,p,d=fixture(tmp_path,ptext=text);out=tmp_path/"out";assemble(m,out,p,d);validate(m,out)
 
 @pytest.mark.parametrize("definition", ["> [guide]: missing.md", "- [guide]: missing.md", "> - [guide]: missing.md", "1. > [guide]: missing.md", "-\t[guide]: missing.md", ">\t[guide]: missing.md", ">\t-\t[guide]: missing.md", "> \t[guide]: missing.md", ">  \t[guide]: missing.md"])
