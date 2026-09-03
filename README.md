@@ -218,7 +218,8 @@ Do not hand-edit generated copies. Fix content upstream or adjust the reviewed c
 `docs-check.yml` runs for documentation-related pull requests and main-branch
 pushes with `contents: read` permission. It checks out the website without
 persisting credentials, reads the exact source locks from `docs-manifest.yml`,
-fetches those commits through public HTTPS into detached temporary worktrees, and
+fetches those commits over authenticated HTTPS using a short-lived, read-only
+GitHub App token into detached temporary worktrees, and
 never executes source-repository configuration or code. It runs the same tests,
 collector, validator, and strict MkDocs build used locally, repeats collection and
 compares the complete generated tree byte-for-byte, and scans the built `site/`

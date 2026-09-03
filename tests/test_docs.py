@@ -103,6 +103,13 @@ def test_relative_links_relocate_or_use_exact_immutable_source_revision(tmp_path
  assert "[Guide](guides/guide.md?view=full#intro)" in generated
  assert f"[Notes](https://github.com/pydasc/pydasc/blob/{content}/notes.md?raw=1#top)" in generated
 
+def test_rewritten_links_url_encode_decoded_path_characters(tmp_path):
+ m,p,d=fixture(tmp_path);(p/"README.md").write_text("# P\n\n[Selected](selected%20%28한글%29%23.md#section)\n[Other](other%20%28한글%29%23%3F.md?raw=1#top)\n");selected=p/"selected (한글)#.md";other=p/"other (한글)#?.md";selected.write_text("# Selected\n");other.write_text("# Other\n");git(p,"add","README.md",selected.name,other.name);git(p,"commit","-qm","encoded link targets");content=git(p,"rev-parse","HEAD")
+ contract_path=p/"docs/publication-manifest.json";contract=json.loads(contract_path.read_text());contract["source_commit"]=content;contract["files"].append({"source":selected.name,"destination":"pydasc/guides/selected (한글)#.md","media_type":"text/markdown","documentation_status":{"label":"Reviewed","evidence":"test"},"redistribution":{"spdx_license":"MIT","license_file":"LICENSE"}});contract_path.write_text(json.dumps(contract));git(p,"add","docs/publication-manifest.json");git(p,"commit","-qm","approve encoded link target")
+ data=yaml.safe_load(m.read_text());data["sources"]["pydasc"]["checkout_commit"]=git(p,"rev-parse","HEAD");data["sources"]["pydasc"]["files"].append({"source":selected.name,"destination":"pydasc/guides/selected (한글)#.md"});m.write_text(yaml.safe_dump(data));out=tmp_path/"out";assemble(m,out,p,d);generated=(out/"pydasc/index.md").read_text()
+ assert "[Selected](guides/selected%20%28%ED%95%9C%EA%B8%80%29%23.md#section)" in generated
+ assert f"[Other](https://github.com/pydasc/pydasc/blob/{content}/other%20%28%ED%95%9C%EA%B8%80%29%23%3F.md?raw=1#top)" in generated
+
 def test_unlisted_link_target_must_exist_at_exact_content_commit(tmp_path):
  m,p,d=fixture(tmp_path);(p/"README.md").write_text("# P\n\n[Future](future.md)\n");git(p,"add","README.md");git(p,"commit","-qm","link before target");content=git(p,"rev-parse","HEAD");(p/"future.md").write_text("# Future\n");contract_path=p/"docs/publication-manifest.json";contract=json.loads(contract_path.read_text());contract["source_commit"]=content;contract_path.write_text(json.dumps(contract));git(p,"add","future.md","docs/publication-manifest.json");git(p,"commit","-qm","add target later")
  data=yaml.safe_load(m.read_text());data["sources"]["pydasc"]["checkout_commit"]=git(p,"rev-parse","HEAD");m.write_text(yaml.safe_dump(data))

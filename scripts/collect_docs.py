@@ -16,7 +16,7 @@ from dataclasses import dataclass
 from html.parser import HTMLParser
 from pathlib import Path, PurePosixPath
 from typing import Any
-from urllib.parse import unquote, urlsplit
+from urllib.parse import quote, unquote, urlsplit
 
 import yaml
 
@@ -374,14 +374,19 @@ def _rewrite(text: str, entry: Entry, selected: dict[tuple[str, str], Entry], ch
         normalized = PurePosixPath(*parts)
         approved = selected.get((entry.source_name, normalized.as_posix()))
         if approved:
-            target = os.path.relpath(approved.destination.as_posix(), entry.destination.parent.as_posix()).replace(os.sep, "/")
+            relocated = os.path.relpath(
+                approved.destination.as_posix(),
+                entry.destination.parent.as_posix(),
+            ).replace(os.sep, "/")
+            target = quote(relocated, safe="/")
         else:
             kind = _git_object_kind(checkout, entry.content_commit, normalized)
             if kind is None:
                 raise CollectionError(f"broken or unsafe relative link: {raw}")
             if label.startswith("!"):
                 raise CollectionError(f"image is not approved: {raw}")
-            target = f"{entry.repository}/{kind}/{entry.content_commit}/{normalized.as_posix()}"
+            encoded_path = quote(normalized.as_posix(), safe="/")
+            target = f"{entry.repository}/{kind}/{entry.content_commit}/{encoded_path}"
         suffix = (f"?{parsed.query}" if parsed.query else "") + (f"#{parsed.fragment}" if parsed.fragment else "")
         return f"{label}({target}{suffix})"
     return LINK_RE.sub(replace, text)
