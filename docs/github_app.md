@@ -127,16 +127,16 @@ The token step is SHA-pinned and explicitly requests only Contents read access:
 ```
 
 The workflows pass `steps.source-token.outputs.token` only through a masked
-environment variable, construct an HTTP authorization header for the individual
-Git commands, disable credential helpers and source hooks, and fetch exact
-reviewed commits without persisting the token. Do not print the token or include
-it in an artifact.
+environment variable, construct and explicitly mask an HTTP authorization header
+for the individual Git commands, disable credential helpers and source hooks,
+and fetch exact reviewed commits without persisting the token. Do not print the
+token or include it in an artifact.
 
-Fork-originated pull requests do not receive repository secrets. The
-documentation-check workflow therefore runs its repository tests and validates
-the manifest for those pull requests, but skips private-source retrieval and the
-complete rendered-site pipeline. Pushes and same-repository pull requests run
-the full checks.
+Pull-request code does not receive repository secrets, regardless of whether its
+branch is in a fork or the website repository. The documentation-check workflow
+therefore runs its repository tests and validates the manifest for pull requests,
+but skips private-source retrieval and the complete rendered-site pipeline. Only
+trusted pushes run the full checks.
 
 The workflow's `GITHUB_TOKEN` permissions do not provide cross-repository
 private-source access. The short-lived App installation token supplies only the

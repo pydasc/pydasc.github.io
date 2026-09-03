@@ -32,10 +32,7 @@ def test_docs_check_pins_actions_and_reproduces_local_build() -> None:
 
     assert uses_lines
     assert all(ACTION_PIN.match(line) for line in uses_lines)
-    trusted_source_condition = (
-        "if: github.event_name != 'pull_request' || "
-        "github.event.pull_request.head.repo.full_name == github.repository"
-    )
+    trusted_source_condition = "if: github.event_name == 'push'"
     assert text.count(trusted_source_condition) == 7
     assert "- name: Run repository tests\n        run: python -m pytest" in text
     for command in (
@@ -46,6 +43,7 @@ def test_docs_check_pins_actions_and_reproduces_local_build() -> None:
         "permission-contents: read",
         "steps.source-token.outputs.token",
         "http.https://github.com/.extraheader=AUTHORIZATION: basic $auth_header",
+        'echo "::add-mask::$auth_header"',
         "load_manifest(Path(\"docs-manifest.yml\"))",
         "credential.helper=",
         "core.hooksPath=/dev/null",
@@ -105,6 +103,7 @@ def test_pages_artifact_is_validated_scanned_and_sha_pinned() -> None:
     assert "permission-contents: read" in text
     assert "steps.source-token.outputs.token" in text
     assert "http.https://github.com/.extraheader=AUTHORIZATION: basic $auth_header" in text
+    assert 'echo "::add-mask::$auth_header"' in text
     assert 'fetch --quiet --no-tags --depth=1 origin "$content_commit"' in text
     assert "scripts/validate_accessibility.py" in text
     assert "scripts/validate_physics_docs.py" in text
@@ -131,6 +130,7 @@ def test_source_update_workflow_proposes_validated_review_only_prs() -> None:
     assert "steps.source-token.outputs.token" in text
     assert "permission-contents: read" in text
     assert "http.https://github.com/.extraheader=AUTHORIZATION: basic $auth_header" in text
+    assert 'echo "::add-mask::$auth_header"' in text
     assert "scripts/update_source_locks.py" in text
     assert "--skip-unapproved" in text
     assert "credential.helper=" in text

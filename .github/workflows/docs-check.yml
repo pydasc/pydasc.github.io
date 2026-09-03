@@ -58,7 +58,7 @@ jobs:
         run: python -m pytest
 
       - name: Create read-only token for private documentation sources
-        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+        if: github.event_name == 'push'
         id: source-token
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
@@ -93,7 +93,7 @@ jobs:
           PY
 
       - name: Fetch reviewed private source commits
-        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+        if: github.event_name == 'push'
         shell: bash
         env:
           SOURCE_TOKEN: ${{ steps.source-token.outputs.token }}
@@ -104,6 +104,7 @@ jobs:
         run: |
           set -euo pipefail
           auth_header="$(printf 'x-access-token:%s' "$SOURCE_TOKEN" | base64 | tr -d '\n')"
+          echo "::add-mask::$auth_header"
           mkdir -p .source-checkouts/pydasc .source-checkouts/dasc
           for name in pydasc dasc; do
             if [[ "$name" == "pydasc" ]]; then
@@ -141,7 +142,7 @@ jobs:
           done
 
       - name: Validate source contracts
-        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+        if: github.event_name == 'push'
         run: |
           python scripts/collect_docs.py \
             --manifest docs-manifest.yml --output docs \
@@ -150,7 +151,7 @@ jobs:
           python scripts/validate_physics_docs.py --docs docs
 
       - name: Verify deterministic assembly
-        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+        if: github.event_name == 'push'
         shell: bash
         run: |
           set -euo pipefail
@@ -166,17 +167,17 @@ jobs:
           python scripts/validate_docs.py --manifest docs-manifest.yml --docs docs
 
       - name: Build strict site
-        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+        if: github.event_name == 'push'
         run: mkdocs build --strict
 
       - name: Validate site links and presentation assets
-        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+        if: github.event_name == 'push'
         run: |
           python scripts/validate_site.py --site site --css docs/stylesheets/readthedocs.css
           python scripts/validate_accessibility.py --site site
 
       - name: Scan complete site artifact
-        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+        if: github.event_name == 'push'
         shell: bash
         run: |
           set -euo pipefail

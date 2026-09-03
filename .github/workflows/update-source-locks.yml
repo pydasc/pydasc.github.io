@@ -65,6 +65,7 @@ jobs:
         run: |
           set -euo pipefail
           auth_header="$(printf 'x-access-token:%s' "$SOURCE_TOKEN" | base64 | tr -d '\n')"
+          echo "::add-mask::$auth_header"
           mkdir -p .source-checkouts
           git -c credential.helper= -c core.hooksPath=/dev/null \
             -c "http.https://github.com/.extraheader=AUTHORIZATION: basic $auth_header" \

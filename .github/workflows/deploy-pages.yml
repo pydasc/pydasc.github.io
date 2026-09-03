@@ -79,6 +79,7 @@ jobs:
         run: |
           set -euo pipefail
           auth_header="$(printf 'x-access-token:%s' "$SOURCE_TOKEN" | base64 | tr -d '\n')"
+          echo "::add-mask::$auth_header"
           mkdir -p .source-checkouts/pydasc .source-checkouts/dasc
           for name in pydasc dasc; do
             if [[ "$name" == "pydasc" ]]; then
