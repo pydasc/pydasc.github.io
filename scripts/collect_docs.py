@@ -41,7 +41,9 @@ DOCUMENTATION_STATUSES = {
     "Superseded", "Released",
 }
 REFERENCE_DEFINITION_RE = re.compile(r"^ {0,3}\[(?!\^)[^\]\n]+\]:")
-CONTAINER_PREFIX_RE = re.compile(r"^ {0,3}(?:> ?|(?:[-+*]|\d+[.)]) +)")
+CONTAINER_PREFIX_RE = re.compile(
+    r"^ {0,3}(?:>[ \t]?|(?:[-+*]|\d+[.)])[ \t]+)"
+)
 MARKDOWN_AUTOLINK_RE = re.compile(
     r"<(?:https?://[^<>\s]+|[^<>\s@]+@[^<>\s@]+)>"
 )
