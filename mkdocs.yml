@@ -8,6 +8,7 @@ docs_dir: docs
 site_dir: site
 exclude_docs: |
   TODO.md
+  github_app.md
   CODEX_TASK_WEBSITE.md
   CODEX_TASK_READTHEDOCS_STYLE.md
   CODEX_TASKS_DASC_PHYSICS_DOCUMENTATION.md
