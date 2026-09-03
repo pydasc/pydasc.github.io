@@ -342,7 +342,7 @@ def _markdown_link_matches(text: str, source: PurePosixPath) -> list[MarkdownLin
 def _has_reference_definition(text: str) -> bool:
     """Use MkDocs' Markdown parser family to recognize reference definitions."""
     try:
-        parser = markdown.Markdown(extensions=["fenced_code"])
+        parser = markdown.Markdown(extensions=["pymdownx.superfences"])
         parser.convert(text)
     except Exception as exc:
         raise CollectionError("cannot parse Markdown reference definitions") from exc
