@@ -4,7 +4,12 @@ from pathlib import Path
 import pytest, yaml
 sys.path.insert(0,str(Path(__file__).parents[1]/"scripts"))
 import collect_docs
-from collect_docs import CollectionError, assemble, load_manifest
+from collect_docs import (
+    MARKDOWN_POLICY_EXTENSIONS,
+    CollectionError,
+    assemble,
+    load_manifest,
+)
 from validate_docs import validate
 from update_source_locks import main as update_source_locks_main
 from update_source_locks import update as update_source_locks
@@ -340,6 +345,11 @@ def test_release_keeps_api_and_examples_static():
  assert all(not any(part.casefold() in {"examples","notebooks"} for part in Path(path).parts) for path in selected)
  requirements=(root/"requirements-docs.txt").read_text().casefold()
  assert all(tool not in requirements for tool in ("jupyter","nbconvert","mkdocstrings","pydoc"))
+
+def test_markdown_policy_extensions_match_mkdocs_configuration():
+ root=Path(__file__).parents[1];configured=yaml.safe_load((root/"mkdocs.yml").read_text())["markdown_extensions"]
+ names=[entry if isinstance(entry,str) else next(iter(entry)) for entry in configured]
+ assert names==MARKDOWN_POLICY_EXTENSIONS
 
 def test_portal_enters_dasc_through_project_first_overview():
  root=Path(__file__).parents[1]
