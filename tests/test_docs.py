@@ -154,7 +154,7 @@ def test_reference_definition_inside_code_is_ignored(tmp_path):
  text="# P\n\n```markdown\n[guide]: missing.md\n```\n\n    [other]: missing.md\n\n\t[tabbed]: missing.md\n"
  m,p,d=fixture(tmp_path,ptext=text);out=tmp_path/"out";assemble(m,out,p,d);validate(m,out)
 
-@pytest.mark.parametrize("definition", ["> [guide]: missing.md", "- [guide]: missing.md", "> - [guide]: missing.md", "1. > [guide]: missing.md", "-\t[guide]: missing.md", ">\t[guide]: missing.md", ">\t-\t[guide]: missing.md"])
+@pytest.mark.parametrize("definition", ["> [guide]: missing.md", "- [guide]: missing.md", "> - [guide]: missing.md", "1. > [guide]: missing.md", "-\t[guide]: missing.md", ">\t[guide]: missing.md", ">\t-\t[guide]: missing.md", "> \t[guide]: missing.md", ">  \t[guide]: missing.md"])
 def test_reference_definitions_inside_containers_are_rejected(tmp_path,definition):
  m,p,d=fixture(tmp_path,ptext=f"# P\n\n{definition}\n\n[Guide][guide]\n")
  with pytest.raises(CollectionError,match="reference-style links are not allowed"):assemble(m,tmp_path/"out",p,d)

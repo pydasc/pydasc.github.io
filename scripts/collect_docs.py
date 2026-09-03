@@ -19,6 +19,7 @@ from typing import Any
 from urllib.parse import SplitResult, quote, unquote_to_bytes, urlsplit
 
 import yaml
+import markdown
 
 EXPECTED = {
     "pydasc": "https://github.com/pydasc/pydasc",
@@ -40,10 +41,6 @@ DOCUMENTATION_STATUSES = {
     "Draft", "Reviewed", "Reference", "Validated", "Unvalidated",
     "Superseded", "Released",
 }
-REFERENCE_DEFINITION_RE = re.compile(r"^ {0,3}\[(?!\^)[^\]\n]+\]:")
-CONTAINER_PREFIX_RE = re.compile(
-    r"^ {0,3}(?:>[ \t]?|(?:[-+*]|\d+[.)])[ \t]+)"
-)
 MARKDOWN_AUTOLINK_RE = re.compile(
     r"<(?:https?://[^<>\s]+|[^<>\s@]+@[^<>\s@]+)>"
 )
@@ -343,14 +340,13 @@ def _markdown_link_matches(text: str, source: PurePosixPath) -> list[MarkdownLin
 
 
 def _has_reference_definition(text: str) -> bool:
-    """Recognize reference definitions inside supported block containers."""
-    for original_line in _markdown_visible_text(text).splitlines():
-        line = original_line
-        while prefix := CONTAINER_PREFIX_RE.match(line):
-            line = line[prefix.end():]
-        if REFERENCE_DEFINITION_RE.match(line):
-            return True
-    return False
+    """Use MkDocs' Markdown parser family to recognize reference definitions."""
+    try:
+        parser = markdown.Markdown(extensions=["fenced_code"])
+        parser.convert(text)
+    except Exception as exc:
+        raise CollectionError("cannot parse Markdown reference definitions") from exc
+    return bool(parser.references)
 
 
 def _git_object_kind(
