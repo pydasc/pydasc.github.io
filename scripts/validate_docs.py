@@ -71,7 +71,12 @@ def validate(manifest: Path, docs: Path) -> None:
             )
             banner = f"<!-- Generated; source={source_url}; status={item['status']}; license={item['license']}; attribution={item['attribution']}; do not edit. -->\n"
             if FORBIDDEN.search(text) or not text.startswith(banner): raise CollectionError(f"unsafe/missing provenance: {relative}")
-            for match in _markdown_link_matches(text, PurePosixPath(relative)):
+            matches = _markdown_link_matches(
+                text,
+                PurePosixPath(relative),
+                allowed_rendered=(("link", source_url),),
+            )
+            for match in matches:
                 raw = match.destination; parsed = _split_link(raw, PurePosixPath(relative))
                 if parsed.scheme in {"http", "https", "mailto"} or raw.startswith("#"):
                     if match.label.startswith("!"):

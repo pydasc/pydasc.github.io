@@ -167,9 +167,18 @@ def test_reference_definition_inside_nested_superfence_is_ignored(tmp_path,fence
  m,p,d=fixture(tmp_path,ptext=text);out=tmp_path/"out";assemble(m,out,p,d);validate(m,out)
 
 @pytest.mark.parametrize("fence", ["```", "~~~"])
-def test_link_syntax_inside_list_superfence_is_ignored(tmp_path,fence):
+def test_list_fence_like_syntax_follows_configured_renderer(tmp_path,fence):
  text=f"# P\n\n- {fence}markdown\n  [example](missing.md)\n  ![image](missing.png)\n  {fence}\n"
- m,p,d=fixture(tmp_path,ptext=text);out=tmp_path/"out";assemble(m,out,p,d);validate(m,out)
+ m,p,d=fixture(tmp_path,ptext=text)
+ if fence == "```":
+  out=tmp_path/"out";assemble(m,out,p,d);validate(m,out)
+ else:
+  with pytest.raises(CollectionError,match="unsupported rendered Markdown link syntax"):assemble(m,tmp_path/"out",p,d)
+
+def test_renderer_prevents_false_fence_mask_from_hiding_active_link(tmp_path):
+ text="# P\n\n> - ~~~markdown\n>   [active](missing.md)\n>   ~~~\n"
+ m,p,d=fixture(tmp_path,ptext=text)
+ with pytest.raises(CollectionError,match="unsupported rendered Markdown link syntax"):assemble(m,tmp_path/"out",p,d)
 
 @pytest.mark.parametrize("definition", ["> [guide]: missing.md", "- [guide]: missing.md", "> - [guide]: missing.md", "1. > [guide]: missing.md", "-\t[guide]: missing.md", ">\t[guide]: missing.md", ">\t-\t[guide]: missing.md", "> \t[guide]: missing.md", ">  \t[guide]: missing.md"])
 def test_reference_definitions_inside_containers_are_rejected(tmp_path,definition):

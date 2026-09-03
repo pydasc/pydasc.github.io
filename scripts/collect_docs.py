@@ -12,7 +12,9 @@ import shutil
 import subprocess
 import sys
 import tempfile
+from collections import Counter
 from dataclasses import dataclass
+from html import unescape
 from html.parser import HTMLParser
 from pathlib import Path, PurePosixPath
 from typing import Any
@@ -59,6 +61,17 @@ UNSAFE_HTML_ATTRIBUTES = {
 }
 UNSAFE_ATTRIBUTION_RE = re.compile(r"(?:[\x00-\x1f<>\[\]]|--)")
 FORBIDDEN = re.compile(r"(?:-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----|github_pat_[A-Za-z0-9_]+|ghp_[A-Za-z0-9]+|AKIA[0-9A-Z]{16}|/(?:Users|home)/[^\s)`]+|https?://(?:localhost|127\.0\.0\.1|[^/\s]+\.internal)(?:[/\s)]|$))")
+MARKDOWN_POLICY_EXTENSIONS = [
+    "admonition",
+    "attr_list",
+    "footnotes",
+    "md_in_html",
+    "pymdownx.details",
+    "pymdownx.highlight",
+    "pymdownx.inlinehilite",
+    "pymdownx.superfences",
+    "toc",
+]
 
 
 class CollectionError(ValueError):
@@ -100,6 +113,23 @@ class MarkdownHTMLGuard(HTMLParser):
     def handle_pi(self, data: str) -> None:
         del data
         self._reject()
+
+
+class RenderedReferenceParser(HTMLParser):
+    """Collect links and images emitted by the configured Markdown parser."""
+
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self.references: list[tuple[str, str]] = []
+
+    def handle_starttag(
+        self, tag: str, attrs: list[tuple[str, str | None]]
+    ) -> None:
+        values = dict(attrs)
+        if tag == "a" and values.get("href") is not None:
+            self.references.append(("link", values["href"] or ""))
+        elif tag == "img" and values.get("src") is not None:
+            self.references.append(("image", values["src"] or ""))
 
 
 def _validate_markdown_html(text: str, source: PurePosixPath) -> None:
@@ -293,7 +323,11 @@ def _markdown_visible_text(text: str) -> str:
     return "".join(masked)
 
 
-def _markdown_link_matches(text: str, source: PurePosixPath) -> list[MarkdownLink]:
+def _markdown_link_matches(
+    text: str,
+    source: PurePosixPath,
+    allowed_rendered: tuple[tuple[str, str], ...] = (),
+) -> list[MarkdownLink]:
     """Parse supported inline links and images with balanced delimiters."""
     visible = _markdown_visible_text(text)
     links: list[MarkdownLink] = []
@@ -363,13 +397,44 @@ def _markdown_link_matches(text: str, source: PurePosixPath) -> list[MarkdownLin
             )
         )
         index = link_end
-    return links
+    try:
+        rendered = markdown.markdown(text, extensions=MARKDOWN_POLICY_EXTENSIONS)
+        parser = RenderedReferenceParser()
+        parser.feed(rendered)
+    except Exception as exc:
+        raise CollectionError(f"cannot parse Markdown links in {source}") from exc
+
+    expected = Counter(parser.references)
+    for allowed in allowed_rendered:
+        if expected[allowed]:
+            expected[allowed] -= 1
+    visible = _markdown_visible_text(text)
+    for autolink in MARKDOWN_AUTOLINK_RE.finditer(visible):
+        raw = autolink.group(0)[1:-1]
+        key = ("link", raw if "://" in raw else f"mailto:{raw}")
+        if expected[key]:
+            expected[key] -= 1
+
+    confirmed: list[MarkdownLink] = []
+    for link in links:
+        kind = "image" if link.label.startswith("!") else "link"
+        key = (kind, unescape(link.destination))
+        if expected[key]:
+            expected[key] -= 1
+            confirmed.append(link)
+
+    unsupported = sorted(key for key, count in expected.items() if count and not key[1].startswith("#fn"))
+    if unsupported:
+        raise CollectionError(
+            f"unsupported rendered Markdown link syntax in {source}: {unsupported[0][1]!r}"
+        )
+    return confirmed
 
 
 def _has_reference_definition(text: str) -> bool:
     """Use MkDocs' Markdown parser family to recognize reference definitions."""
     try:
-        parser = markdown.Markdown(extensions=["pymdownx.superfences"])
+        parser = markdown.Markdown(extensions=MARKDOWN_POLICY_EXTENSIONS)
         parser.convert(text)
     except Exception as exc:
         raise CollectionError("cannot parse Markdown reference definitions") from exc
