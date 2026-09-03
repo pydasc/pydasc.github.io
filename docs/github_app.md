@@ -101,17 +101,16 @@ DASC_DOCS_APP_CLIENT_ID
 DASC_DOCS_APP_PRIVATE_KEY
 ```
 
-## 6. Convert the workflows to installation-token checkout
+## 6. Workflow implementation
 
-Adding the secrets alone is not sufficient. The current workflows pass
-`DASC_SOURCE_DEPLOY_KEY` and `PYDASC_SOURCE_DEPLOY_KEY` to the `ssh-key`
-input of `actions/checkout`. Update each source-reading job in:
+Each source-reading job in the following workflows mints a short-lived App
+installation token before fetching private source content:
 
 - `.github/workflows/docs-check.yml`
 - `.github/workflows/deploy-pages.yml`
 - `.github/workflows/update-source-locks.yml`
 
-Before the source checkout steps, mint one short-lived installation token:
+The token step is SHA-pinned and explicitly requests only Contents read access:
 
 ```yaml
 - name: Create source-read installation token
@@ -127,22 +126,21 @@ Before the source checkout steps, mint one short-lived installation token:
     permission-contents: read
 ```
 
-For every dasc and pydasc checkout in that job:
+The workflows pass `steps.source-token.outputs.token` only through a masked
+environment variable, construct an HTTP authorization header for the individual
+Git commands, disable credential helpers and source hooks, and fetch exact
+reviewed commits without persisting the token. Do not print the token or include
+it in an artifact.
 
-- replace `ssh-key: ...` with
-  `token: ${{ steps.source_token.outputs.token }}`;
-- retain `persist-credentials: false`;
-- retain the repository, exact locked `ref`, path, and fetch-depth settings;
-- keep the post-checkout credential scan; and
-- do not print the token or persist it in artifacts.
+Fork-originated pull requests do not receive repository secrets. The
+documentation-check workflow therefore runs its repository tests and validates
+the manifest for those pull requests, but skips private-source retrieval and the
+complete rendered-site pipeline. Pushes and same-repository pull requests run
+the full checks.
 
 The workflow's `GITHUB_TOKEN` permissions do not provide cross-repository
 private-source access. The short-lived App installation token supplies only the
 separately granted read access.
-
-Update workflow-structure tests and credential documentation in the same
-change. Validate the workflow YAML and run the complete local test suite before
-pushing.
 
 ## 7. Verify in GitHub Actions
 
@@ -156,7 +154,5 @@ After the reviewed workflow conversion is committed and pushed:
 6. Confirm the signed-out site at <https://pydasc.github.io/> shows the
    expected MkDocs site.
 
-Remove the old deploy-key secrets and source-repository deploy keys only after
-all App-token workflows pass. Secret and key removal is a separate authorized
-administrator action; do not remove the last working credential during
-cutover.
+Review the App installation and rotate its private key periodically. Remove an
+obsolete private key only after workflows using its replacement pass.

@@ -32,6 +32,12 @@ def test_docs_check_pins_actions_and_reproduces_local_build() -> None:
 
     assert uses_lines
     assert all(ACTION_PIN.match(line) for line in uses_lines)
+    trusted_source_condition = (
+        "if: github.event_name != 'pull_request' || "
+        "github.event.pull_request.head.repo.full_name == github.repository"
+    )
+    assert text.count(trusted_source_condition) == 7
+    assert "- name: Run repository tests\n        run: python -m pytest" in text
     for command in (
         "persist-credentials: false",
         "actions/create-github-app-token@",
