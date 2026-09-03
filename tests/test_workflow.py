@@ -22,8 +22,10 @@ def test_docs_check_workflow_is_valid_and_least_privileged() -> None:
     assert set(workflow["jobs"]) == {"docs"}
     assert "pull_request" in workflow["on"]
     assert "push" in workflow["on"]
+    for event in ("pull_request", "push"):
+        assert ".github/workflows/deploy-pages.yml" in workflow["on"][event]["paths"]
     assert "workflow_dispatch" not in workflow["on"]
-    assert "deploy" not in text.casefold()
+    assert "actions/deploy-pages@" not in text
 
 
 def test_docs_check_pins_actions_and_reproduces_local_build() -> None:

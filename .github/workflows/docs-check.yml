@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - ".github/workflows/docs-check.yml"
+      - ".github/workflows/deploy-pages.yml"
       - ".github/workflows/update-source-locks.yml"
       - "docs/**"
       - "scripts/**"
@@ -17,6 +18,7 @@ on:
     branches: [main]
     paths:
       - ".github/workflows/docs-check.yml"
+      - ".github/workflows/deploy-pages.yml"
       - ".github/workflows/update-source-locks.yml"
       - "docs/**"
       - "scripts/**"
