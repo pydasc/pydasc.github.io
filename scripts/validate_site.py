@@ -10,6 +10,8 @@ from html.parser import HTMLParser
 from pathlib import Path
 from urllib.parse import unquote, urlsplit
 
+from html_policy import unique_attributes
+
 
 PERSONAL_PATH = re.compile(r"/(?:Users|home)/[^\s<]+")
 CSS_ROOT_URL = re.compile(r"url\(\s*(['\"]?)/")
@@ -31,7 +33,7 @@ class References(HTMLParser):
         self.references: list[str] = []
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
-        values = dict(attrs)
+        values = unique_attributes(attrs)
         for name in ("href", "src"):
             if values.get(name):
                 self.references.append(values[name] or "")

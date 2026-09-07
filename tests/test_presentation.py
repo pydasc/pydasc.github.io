@@ -17,6 +17,18 @@ ROOT = Path(__file__).parents[1]
 CSS = ROOT / "docs/stylesheets/readthedocs.css"
 
 
+@pytest.mark.parametrize("html", [
+    '<a href="javascript:alert(1)" href="https://example.com/">Link</a>',
+    '<a href="https://example.com/" HREF="javascript:alert(1)">Link</a>',
+    '<img src="data:text/html,active" SRC="approved.png" />',
+    '<a href="https://example.com/" href="https://example.com/">Link</a>',
+])
+def test_site_validation_rejects_duplicate_attributes(tmp_path: Path, html: str) -> None:
+    (tmp_path / "index.html").write_text(html, encoding="utf-8")
+    with pytest.raises(ValueError, match="duplicate HTML attribute"):
+        validate_site(tmp_path, CSS)
+
+
 def test_readthedocs_stylesheet_and_local_assets_are_configured() -> None:
     config = yaml.safe_load((ROOT / "mkdocs.yml").read_text(encoding="utf-8"))
 

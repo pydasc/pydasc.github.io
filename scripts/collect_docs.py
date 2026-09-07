@@ -23,6 +23,8 @@ from urllib.parse import SplitResult, quote, unquote_to_bytes, urlsplit
 import markdown
 import yaml
 
+from html_policy import unique_attributes
+
 EXPECTED = {
     "pydasc": "https://github.com/pydasc/pydasc",
     "dasc": "https://github.com/pydasc/dasc",
@@ -125,7 +127,10 @@ class RenderedReferenceParser(HTMLParser):
     def handle_starttag(
         self, tag: str, attrs: list[tuple[str, str | None]]
     ) -> None:
-        values = dict(attrs)
+        try:
+            values = unique_attributes(attrs)
+        except ValueError as exc:
+            raise CollectionError(str(exc)) from exc
         if tag == "a" and values.get("href") is not None:
             self.references.append(("link", values["href"] or ""))
         elif tag == "img" and values.get("src") is not None:
@@ -151,6 +156,10 @@ class RenderedHTMLGuard(HTMLParser):
         raise CollectionError(f"{reason}: {self.source}")
 
     def _check(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        try:
+            values = unique_attributes(attrs)
+        except ValueError as exc:
+            raise CollectionError(f"{exc}: {self.source}") from exc
         folded_tag = tag.casefold()
         if folded_tag in RENDER_FORBIDDEN_TAGS:
             self._reject("active rendered HTML is not allowed")
@@ -161,6 +170,9 @@ class RenderedHTMLGuard(HTMLParser):
                 continue
             if folded.startswith("on") or folded in UNSAFE_HTML_ATTRIBUTES:
                 self._reject("unsafe rendered attribute is not allowed")
+        for name in allowed:
+            if values.get(name) is not None:
+                _validate_rendered_url(values[name] or "", self.source, folded_tag == "img")
 
     def handle_starttag(
         self, tag: str, attrs: list[tuple[str, str | None]]
@@ -284,6 +296,19 @@ def _split_link(raw: str, source: PurePosixPath) -> SplitResult:
         raise CollectionError(f"invalid link URL {raw!r} in {source}") from exc
 
 
+def _validate_rendered_url(raw: str, source: PurePosixPath, image: bool) -> None:
+    """Check actual DOM destinations even when source matching finds no link."""
+    if "\\" in raw or any(ord(c) < 0x20 or ord(c) == 0x7f for c in raw):
+        raise CollectionError(f"unsafe rendered URL in {source}: {raw!r}")
+    parsed = _split_link(raw, source)
+    if parsed.scheme not in {"", "http", "https", "mailto"} or (
+        not parsed.scheme and (parsed.netloc or raw.startswith("/"))
+    ):
+        raise CollectionError(f"unsafe link {raw!r} in {source}")
+    if image and (parsed.scheme or not parsed.path):
+        raise CollectionError(f"image is not approved: {raw}")
+
+
 def _markdown_visible_text(text: str) -> str:
     """Mask Markdown code and escapes while retaining source offsets."""
     masked = list(text)
@@ -367,11 +392,17 @@ def _markdown_visible_text(text: str) -> str:
 def _markdown_link_matches(
     text: str,
     source: PurePosixPath,
-    allowed_rendered: tuple[tuple[str, str], ...] = (),
 ) -> list[MarkdownLink]:
-    """Parse supported inline links and images with balanced delimiters."""
-    visible = _markdown_visible_text(text)
+    """Locate candidates, then bind each occurrence to a rendered link/image.
+
+    The source scanner is deliberately not authoritative about code or comments.
+    A second render with occurrence-specific URL suffixes establishes which
+    destinations actually render. Literal examples cannot consume a live link's
+    match, even when they contain the same URL.
+    """
+    visible = text
     links: list[MarkdownLink] = []
+    syntax_errors: list[str] = []
     index = 0
     while index < len(visible):
         start = index
@@ -396,9 +427,13 @@ def _markdown_link_matches(
             index = start + 1
             continue
         if visible[destination_start] == "<":
-            raise CollectionError(f"angle-bracket link destinations are not allowed: {source}")
+            syntax_errors.append(f"angle-bracket link destinations are not allowed: {source}")
+            index = start + 1
+            continue
         if visible[destination_start].isspace():
-            raise CollectionError(f"empty or unsupported link destination in {source}")
+            syntax_errors.append(f"empty or unsupported link destination in {source}")
+            index = start + 1
+            continue
         cursor = destination_start
         destination_end: int | None = None
         link_end: int | None = None
@@ -427,7 +462,9 @@ def _markdown_link_matches(
                 break
             cursor += 1
         if destination_end is None or link_end is None:
-            raise CollectionError(f"unsupported inline link syntax in {source}")
+            syntax_errors.append(f"unsupported inline link syntax in {source}")
+            index = start + 1
+            continue
         destination = text[destination_start:destination_end]
         links.append(
             MarkdownLink(
@@ -449,26 +486,48 @@ def _markdown_link_matches(
         raise CollectionError(f"cannot parse Markdown links in {source}") from exc
 
     expected = Counter(parser.references)
-    for allowed in allowed_rendered:
-        if expected[allowed]:
-            expected[allowed] -= 1
-    visible = _markdown_visible_text(text)
-    for autolink in MARKDOWN_AUTOLINK_RE.finditer(visible):
-        raw = autolink.group(0)[1:-1]
-        key = ("link", raw if "://" in raw else f"mailto:{raw}")
-        if expected[key]:
-            expected[key] -= 1
-
-    confirmed: list[MarkdownLink] = []
+    # Append markers, preserving each destination's original Markdown syntax.
+    # These deterministic markers exist only in the probe, never in output.
+    marker_base = "-dasc-policy-" + hashlib.sha256(text.encode()).hexdigest() + "-"
+    edits: list[tuple[int, int, str]] = []
+    probes: list[tuple[tuple[str, str], str, MarkdownLink | None]] = []
     for link in links:
         kind = "image" if link.label.startswith("!") else "link"
-        key = (kind, unescape(link.destination))
-        if expected[key]:
+        marker = f"{marker_base}{len(probes)}"
+        probes.append(((kind, unescape(link.destination)), marker, link))
+        edits.append((link.destination_start, link.destination_end, link.destination + marker))
+    for autolink in MARKDOWN_AUTOLINK_RE.finditer(text):
+        if any(start < autolink.end() and autolink.start() < end for start, end, _ in edits):
+            continue
+        raw = autolink.group(0)[1:-1]
+        key = ("link", raw if "://" in raw else f"mailto:{raw}")
+        marker = f"{marker_base}{len(probes)}"
+        probes.append((key, marker, None))
+        edits.append((autolink.start(), autolink.end(), f"[dasc-policy](<{key[1]}{marker}>)"))
+
+    probe_text = text
+    for start, end, replacement in sorted(edits, reverse=True):
+        probe_text = probe_text[:start] + replacement + probe_text[end:]
+    try:
+        probe_parser = RenderedReferenceParser()
+        probe_parser.feed(markdown.markdown(probe_text, extensions=MARKDOWN_POLICY_EXTENSIONS))
+    except CollectionError:
+        raise
+    except Exception as exc:
+        raise CollectionError(f"cannot locate Markdown links in {source}") from exc
+    rendered_probes = Counter(probe_parser.references)
+
+    confirmed: list[MarkdownLink] = []
+    for key, marker, link in probes:
+        if rendered_probes[(key[0], key[1] + marker)] == 1 and expected[key]:
             expected[key] -= 1
-            confirmed.append(link)
+            if link is not None:
+                confirmed.append(link)
 
     unsupported = sorted(key for key, count in expected.items() if count and not key[1].startswith("#fn"))
     if unsupported:
+        if syntax_errors:
+            raise CollectionError(syntax_errors[0])
         raise CollectionError(
             f"unsupported rendered Markdown link syntax in {source}: {unsupported[0][1]!r}"
         )
@@ -667,18 +726,19 @@ def load_manifest(path: Path, checkouts: dict[str, Path] | None = None) -> list[
 
 def _rewrite(text: str, entry: Entry, selected: dict[tuple[str, str], Entry], checkout: Path) -> str:
     def replacement(label: str, raw: str) -> str:
+        original = raw
         raw = unescape(raw)
         parsed = _split_link(raw, entry.source)
         if parsed.scheme in {"http", "https", "mailto"} or raw.startswith("#"):
             if label.startswith("!"):
                 raise CollectionError(f"image is not approved: {raw}")
-            return raw
+            return original
         if parsed.scheme or parsed.netloc or raw.startswith("/"):
             raise CollectionError(f"unsafe link {raw!r} in {entry.source}")
         if not parsed.path:
             if label.startswith("!"):
                 raise CollectionError(f"image is not approved: {raw}")
-            return raw
+            return original
         relative_path = _decode_link_path(parsed.path, entry.source)
         parts: list[str] = []
         for part in entry.source.parent.joinpath(relative_path).parts:
@@ -704,7 +764,13 @@ def _rewrite(text: str, entry: Entry, selected: dict[tuple[str, str], Entry], ch
                 raise CollectionError(f"image is not approved: {raw}")
             encoded_path = quote(normalized.as_posix(), safe="/")
             target = f"{entry.repository}/{kind}/{entry.content_commit}/{encoded_path}"
-        suffix = (f"?{parsed.query}" if parsed.query else "") + (f"#{parsed.fragment}" if parsed.fragment else "")
+        # Decode entities for URL interpretation, then encode syntax-sensitive
+        # characters when emitting a changed destination. Preserve URI separators
+        # and existing percent escapes in queries/fragments.
+        query = quote(parsed.query, safe="/?:@!$&*+,;=-._~%")
+        fragment = quote(parsed.fragment, safe="/?:@!$&*+,;=-._~%")
+        suffix = (f"?{query}" if parsed.query else "") + (f"#{fragment}" if parsed.fragment else "")
+        suffix = suffix.replace("&", "&amp;")
         return f"{target}{suffix}"
 
     rewritten = text

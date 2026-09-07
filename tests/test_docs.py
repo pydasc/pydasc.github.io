@@ -178,12 +178,12 @@ def test_list_fence_like_syntax_follows_configured_renderer(tmp_path,fence):
  if fence == "```":
   out=tmp_path/"out";assemble(m,out,p,d);validate(m,out)
  else:
-  with pytest.raises(CollectionError,match="unsupported rendered Markdown link syntax"):assemble(m,tmp_path/"out",p,d)
+  with pytest.raises(CollectionError,match="broken or unsafe relative link"):assemble(m,tmp_path/"out",p,d)
 
 def test_renderer_prevents_false_fence_mask_from_hiding_active_link(tmp_path):
  text="# P\n\n> - ~~~markdown\n>   [active](missing.md)\n>   ~~~\n"
  m,p,d=fixture(tmp_path,ptext=text)
- with pytest.raises(CollectionError,match="unsupported rendered Markdown link syntax"):assemble(m,tmp_path/"out",p,d)
+ with pytest.raises(CollectionError,match="broken or unsafe relative link"):assemble(m,tmp_path/"out",p,d)
 
 @pytest.mark.parametrize("definition", ["> [guide]: missing.md", "- [guide]: missing.md", "> - [guide]: missing.md", "1. > [guide]: missing.md", "-\t[guide]: missing.md", ">\t[guide]: missing.md", ">\t-\t[guide]: missing.md", "> \t[guide]: missing.md", ">  \t[guide]: missing.md"])
 def test_reference_definitions_inside_containers_are_rejected(tmp_path,definition):
@@ -376,3 +376,122 @@ def test_html_entity_in_destination_resolves_to_approved_file(tmp_path):
  m,p,d=fixture(tmp_path,ptext="# P\n\n[Home](README&#46;md)\n")
  out=tmp_path/"out";assemble(m,out,p,d);validate(m,out)
  assert "[Home](index.md)" in (out/"pydasc/index.md").read_text()
+
+
+def test_duplicate_href_cannot_hide_unsafe_url_in_masked_html(tmp_path):
+    text = (
+        '# P\n\n<!-- [Example](https://example.com/) -->\n\n'
+        '- ~~~html\n'
+        '  <a href="javascript:alert(1)" HREF="https://example.com/">Link</a>\n'
+        '  ~~~\n'
+    )
+    manifest, pydasc, dasc = fixture(tmp_path, ptext=text)
+    with pytest.raises(CollectionError, match="duplicate HTML attribute: href"):
+        assemble(manifest, tmp_path / "out", pydasc, dasc)
+
+
+@pytest.mark.parametrize("html,pattern", [
+    ('<a href="javascript:alert(1)">Link</a>', "unsafe link"),
+    ('<a href="jav&#x61;script:alert(1)">Link</a>', "unsafe link"),
+    ('<a href="java&#9;script:alert(1)">Link</a>', "unsafe rendered URL"),
+    ('<img src="https://example.com/x.png">', "image is not approved"),
+    ('<img src="data:text/html,active" src="approved.png">', "duplicate HTML attribute"),
+])
+def test_rendered_urls_are_checked_without_source_matches(html, pattern):
+    from pathlib import PurePosixPath
+
+    text = f"# P\n\n- ~~~html\n  {html}\n  ~~~\n"
+    with pytest.raises(CollectionError, match=pattern):
+        collect_docs._markdown_link_matches(text, PurePosixPath("README.md"))
+
+
+@pytest.mark.parametrize("destination", [
+    "https://example.com/a&#41;b",
+    "https://example.com/a&#32;b?q=&quot;quoted&quot;&amp;x=1",
+    "https://example.com/?q=&amp;copy;",
+    "?q=&#41;&amp;x=&#32;#part",
+    "#part&#41;with&#32;space",
+])
+def test_unchanged_urls_preserve_entities_and_rendered_destinations(tmp_path, destination):
+    import markdown
+    from html import unescape
+
+    text = f"# P\n\n[Link]({destination})\n"
+    manifest, pydasc, dasc = fixture(tmp_path, ptext=text)
+    output = tmp_path / "out"
+    assemble(manifest, output, pydasc, dasc)
+    validate(manifest, output)
+    generated = (output / "pydasc/index.md").read_text()
+    assert f"[Link]({destination})" in generated
+    parser = collect_docs.RenderedReferenceParser()
+    parser.feed(markdown.markdown(generated, extensions=MARKDOWN_POLICY_EXTENSIONS))
+    assert ("link", unescape(destination)) in parser.references
+
+
+def test_rewritten_query_and_fragment_are_safe_markdown(tmp_path):
+    text = '# P\n\n[Home](README&#46;md?q=&#41;&amp;name=&#32;&amp;literal=%26copy%3B#part&#40;)\n'
+    manifest, pydasc, dasc = fixture(tmp_path, ptext=text)
+    output = tmp_path / "out"
+    assemble(manifest, output, pydasc, dasc)
+    validate(manifest, output)
+    generated = (output / "pydasc/index.md").read_text()
+    assert "[Home](index.md?q=%29&amp;name=%20&amp;literal=%26copy%3B#part%28)" in generated
+
+
+@pytest.mark.parametrize("literal", [
+    "<!-- [Example](README.md) -->",
+    "<!--\n~~~\n[Example](README.md)\n~~~\n-->",
+    "`[Example](README.md)`",
+    ">     [Example](README.md)",
+    "<div>\n[Example](README.md)\n</div>",
+])
+def test_literal_link_occurrence_cannot_consume_visible_matches(tmp_path, literal):
+    text = f"# P\n\n{literal}\n\n[Home](README.md)\n\n[Again](README.md)\n"
+    manifest, pydasc, dasc = fixture(tmp_path, ptext=text)
+    output = tmp_path / "out"
+    assemble(manifest, output, pydasc, dasc)
+    validate(manifest, output)
+    generated = (output / "pydasc/index.md").read_text()
+    assert literal in generated
+    assert "[Home](index.md)" in generated
+    assert "[Again](index.md)" in generated
+    assert "dasc-policy-" not in generated
+
+
+def test_unsupported_link_examples_in_comments_are_ignored(tmp_path):
+    text = '# P\n\n<!-- [Example](<guide file.md>) -->\n\n[Home](README.md)\n'
+    manifest, pydasc, dasc = fixture(tmp_path, ptext=text)
+    output = tmp_path / "out"
+    assemble(manifest, output, pydasc, dasc)
+    validate(manifest, output)
+    assert '<!-- [Example](<guide file.md>) -->' in (output / "pydasc/index.md").read_text()
+
+
+def test_autolink_comment_cannot_hide_unsupported_raw_anchor():
+    from pathlib import PurePosixPath
+
+    text = (
+        '# P\n\n<!-- <https://example.com/> -->\n\n'
+        '- ~~~html\n  <a href="https://example.com/">Link</a>\n  ~~~\n'
+    )
+    with pytest.raises(CollectionError, match="unsupported rendered Markdown link syntax"):
+        collect_docs._markdown_link_matches(text, PurePosixPath("README.md"))
+
+
+@pytest.mark.parametrize("target", [
+    "https://example.com/a)b", "user@example.com", "https://example.com/?a=1&b=2",
+])
+def test_autolink_occurrences_preserve_url_syntax(target):
+    from pathlib import PurePosixPath
+
+    text = f"<!-- <{target}> -->\n\n<{target}>\n"
+    assert collect_docs._markdown_link_matches(text, PurePosixPath("README.md")) == []
+
+
+def test_live_link_in_fence_like_list_is_rewritten(tmp_path):
+    text = '# P\n\n> - ~~~markdown\n>   [Home](README.md)\n>   ~~~\n'
+    manifest, pydasc, dasc = fixture(tmp_path, ptext=text)
+    output = tmp_path / "out"
+    assemble(manifest, output, pydasc, dasc)
+    validate(manifest, output)
+    assert "[Home](index.md)" in (output / "pydasc/index.md").read_text()

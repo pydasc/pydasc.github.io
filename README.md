@@ -81,6 +81,8 @@ The generated `docs/pydasc/` and `docs/dasc/` directories are intentionally igno
 
 Relative links to allowlisted files are relocated within the portal. Links to existing but unlisted upstream documents are rewritten to immutable GitHub URLs at the same commit; missing or unsafe targets fail collection. Images must be explicitly allowlisted, and arbitrary remote content is never downloaded.
 
+Link discovery verifies individual source occurrences with the configured Markdown renderer; links inside comments and code examples are left untouched. HTML entities are decoded for validation, while unchanged URLs retain their original Markdown spelling and rewritten URLs encode syntax-sensitive characters. Imported rendered HTML is checked for active elements, unsafe attributes, and unsafe URL schemes. Duplicate HTML attributes are rejected during both publication and built-site validation.
+
 ## MkDocs configuration
 
 The implementation should use this baseline:

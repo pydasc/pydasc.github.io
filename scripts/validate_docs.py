@@ -75,7 +75,6 @@ def validate(manifest: Path, docs: Path) -> None:
             matches = _markdown_link_matches(
                 text,
                 PurePosixPath(relative),
-                allowed_rendered=(("link", source_url),),
             )
             for match in matches:
                 raw = unescape(match.destination); parsed = _split_link(raw, PurePosixPath(relative))
