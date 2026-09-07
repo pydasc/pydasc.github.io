@@ -9,6 +9,7 @@ import json
 import os
 import re
 import shutil
+import stat
 import subprocess
 import sys
 import tempfile
@@ -794,8 +795,73 @@ def _tree_state(repo: Path) -> tuple[str, tuple[tuple[str, str], ...]]:
     return status, tuple(files)
 
 
+def _check_inventory_path(path: Path, *, required: bool = False) -> None:
+    """Inspect the directory entry itself, including dangling symlinks."""
+    try:
+        mode = path.lstat().st_mode
+    except FileNotFoundError:
+        if required:
+            raise CollectionError(f"missing inventory: {path}")
+        return
+    if not stat.S_ISREG(mode):
+        raise CollectionError(f"unsafe inventory path (expected a regular file): {path}")
+
+
+def _preflight_output(output: Path, checkouts: dict[str, Path], manifest: Path) -> Path:
+    """Validate every publication target without creating or removing anything."""
+    try:
+        if output.is_symlink():
+            raise CollectionError(f"unsafe output directory: {output}")
+        output = output.resolve()
+        if output.exists() and not output.is_dir():
+            raise CollectionError(f"unsafe output directory: {output}")
+        for name, checkout in checkouts.items():
+            if _inside(output, checkout) or _inside(checkout, output):
+                raise CollectionError(f"output overlaps {name} source checkout: {output}")
+        # Protect both the directory entry used as input and its resolved target.
+        manifest_paths = {manifest.parent.resolve() / manifest.name, manifest.resolve()}
+        for name in EXPECTED:
+            target = output / name
+            if target.is_symlink() or (target.exists() and not target.is_dir()):
+                raise CollectionError(f"unsafe generated namespace: {target}")
+            if any(_inside(path, target) for path in manifest_paths):
+                raise CollectionError(f"output would replace the input manifest: {manifest}")
+        inventory = output / "generated-inventory.json"
+        if inventory in manifest_paths:
+            raise CollectionError(f"output would replace the input manifest: {manifest}")
+        _check_inventory_path(inventory)
+    except (OSError, RuntimeError) as exc:
+        raise CollectionError(f"cannot inspect output paths: {output}") from exc
+    return output
+
+
+def _write_inventory_atomic(path: Path, inventory: list[dict[str, Any]]) -> None:
+    """Replace the inventory entry; never truncate its existing inode/target."""
+    _check_inventory_path(path)
+    temporary: Path | None = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w", encoding="utf-8", newline="\n", dir=path.parent,
+            prefix=".generated-inventory-", suffix=".tmp", delete=False,
+        ) as stream:
+            temporary = Path(stream.name)
+            stream.write(json.dumps({"schema_version": 1, "files": inventory}, indent=2, sort_keys=True) + "\n")
+            stream.flush()
+            os.fchmod(stream.fileno(), 0o644)
+            os.fsync(stream.fileno())
+        _check_inventory_path(path)
+        os.replace(temporary, path)
+    finally:
+        if temporary is not None:
+            temporary.unlink(missing_ok=True)
+
+
 def assemble(manifest: Path, output: Path, pydasc: Path, dasc: Path) -> list[dict[str, Any]]:
-    checkouts = {"pydasc": pydasc.resolve(), "dasc": dasc.resolve()}
+    try:
+        checkouts = {"pydasc": pydasc.resolve(), "dasc": dasc.resolve()}
+    except (OSError, RuntimeError) as exc:
+        raise CollectionError("cannot resolve source checkout paths") from exc
+    output = _preflight_output(output, checkouts, manifest)
     before = {name: _tree_state(repo) for name, repo in checkouts.items()}
     entries = load_manifest(manifest, checkouts)
     selected = {(entry.source_name, entry.source.as_posix()): entry for entry in entries}
@@ -849,17 +915,18 @@ def assemble(manifest: Path, output: Path, pydasc: Path, dasc: Path) -> list[dic
                 data = (banner + publication + body.rstrip() + "\n").encode()
             destination.write_bytes(data)
             inventory.append({"destination": entry.destination.as_posix(), "sha256": hashlib.sha256(data).hexdigest(), "repository": entry.repository, "source": entry.source.as_posix(), "commit": entry.content_commit, "status": entry.status, "license": entry.license_id, "attribution": entry.attribution})
-        output = output.resolve()
+        # Recheck the entire boundary after staging, before touching any output.
+        _preflight_output(output, checkouts, manifest)
+        if before != {name: _tree_state(repo) for name, repo in checkouts.items()}:
+            raise CollectionError("source checkout changed during assembly")
         for name in EXPECTED:
             target = output / name
-            if target.is_symlink() or (target.exists() and not target.is_dir()):
-                raise CollectionError(f"unsafe generated namespace: {target}")
             if target.exists():
                 shutil.rmtree(target)
             target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copytree(stage / name, target)
         inventory.sort(key=lambda item: item["destination"])
-        (output / "generated-inventory.json").write_text(json.dumps({"schema_version": 1, "files": inventory}, indent=2, sort_keys=True) + "\n")
+        _write_inventory_atomic(output / "generated-inventory.json", inventory)
     after = {name: _tree_state(repo) for name, repo in checkouts.items()}
     if before != after:
         raise CollectionError("source checkout changed during assembly")
@@ -875,7 +942,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     try:
         assemble(args.manifest, args.output, args.pydasc, args.dasc)
-    except CollectionError as exc:
+    except (CollectionError, OSError, UnicodeError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
     return 0

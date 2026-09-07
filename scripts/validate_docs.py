@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Validate assembled docs and checksummed inventory."""
 from __future__ import annotations
-import argparse, hashlib, json, sys
+import argparse, hashlib, json, os, stat, sys
 from html import unescape
 from pathlib import Path, PurePosixPath
 from urllib.parse import quote
@@ -13,6 +13,7 @@ from collect_docs import (
     SPDX_RE,
     UNSAFE_ATTRIBUTION_RE,
     CollectionError,
+    _check_inventory_path,
     _decode_link_path,
     _markdown_link_matches,
     _split_link,
@@ -22,7 +23,20 @@ from collect_docs import (
 def validate(manifest: Path, docs: Path) -> None:
     selected = {entry.destination.as_posix(): entry for entry in load_manifest(manifest)}
     docs = docs.resolve()
-    try: inventory = json.loads((docs / "generated-inventory.json").read_text())
+    inventory_path = docs / "generated-inventory.json"
+    _check_inventory_path(inventory_path, required=True)
+    try:
+        # Avoid following a replacement symlink or blocking on a replacement FIFO
+        # between the directory-entry check and opening the inventory.
+        flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0)
+        with os.fdopen(os.open(inventory_path, flags), "r", encoding="utf-8") as stream:
+            opened = os.fstat(stream.fileno())
+            current = inventory_path.lstat()
+            if not stat.S_ISREG(opened.st_mode) or not stat.S_ISREG(current.st_mode) or (
+                opened.st_dev, opened.st_ino
+            ) != (current.st_dev, current.st_ino):
+                raise CollectionError(f"unsafe inventory path: {inventory_path}")
+            inventory = json.load(stream)
     except (OSError, json.JSONDecodeError) as exc: raise CollectionError(f"invalid inventory: {exc}") from exc
     if not isinstance(inventory, dict) or set(inventory) != {"schema_version", "files"} or inventory["schema_version"] != 1 or not isinstance(inventory["files"], list): raise CollectionError("invalid inventory schema")
     required_item_keys = {"destination", "sha256", "repository", "source", "commit", "status", "license", "attribution"}
