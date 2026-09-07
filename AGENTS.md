@@ -56,23 +56,25 @@ The site is a static Material for MkDocs project deployed with GitHub Actions an
 `docs-manifest.yml` is the publication boundary. Use a structure equivalent to:
 
 ```yaml
-schema_version: 1
+schema_version: 2
 sources:
   pydasc:
-    repository: pydasc/pydasc
-    ref: "<reviewed full commit SHA>"
+    repository: https://github.com/pydasc/pydasc
+    checkout_commit: "<reviewed full commit SHA>"
+    publication_manifest: docs/publication-manifest.json
     files:
       - source: README.md
         destination: pydasc/index.md
   dasc:
-    repository: pydasc/dasc
-    ref: "<reviewed full commit SHA>"
+    repository: https://github.com/pydasc/dasc
+    checkout_commit: "<reviewed full commit SHA>"
+    publication_manifest: docs/publication-manifest.json
     files:
       - source: README.md
         destination: dasc/index.md
 ```
 
-Every `ref` used for production must be a reviewed 40-character commit SHA. Branches may be accepted only by an explicit local preview option and must never be used by deployment. Each destination must be unique and remain inside `docs/<source>/`.
+Every `checkout_commit` used for production must be a reviewed 40-character commit SHA. Branches may be accepted only by an explicit local preview option and must never be used by deployment. Each destination must be unique and remain inside `docs/<source>/`.
 
 ## Implementation expectations
 
@@ -107,3 +109,4 @@ Tests must cover path traversal, absolute paths, symlink escape, duplicate desti
 - Never bypass a failing strict build or security validation to deploy.
 - Do not commit `.venv/`, `site/`, temporary checkouts, caches, credentials, or GitHub tokens.
 - Update `README.md` when commands, layout, publication policy, or deployment behavior changes.
+- After making repository changes, show a short proposed git commit message summarizing them, whether or not the change is actually committed.
