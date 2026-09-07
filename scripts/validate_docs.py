@@ -2,6 +2,7 @@
 """Validate assembled docs and checksummed inventory."""
 from __future__ import annotations
 import argparse, hashlib, json, sys
+from html import unescape
 from pathlib import Path, PurePosixPath
 from urllib.parse import quote
 from collect_docs import (
@@ -77,7 +78,7 @@ def validate(manifest: Path, docs: Path) -> None:
                 allowed_rendered=(("link", source_url),),
             )
             for match in matches:
-                raw = match.destination; parsed = _split_link(raw, PurePosixPath(relative))
+                raw = unescape(match.destination); parsed = _split_link(raw, PurePosixPath(relative))
                 if parsed.scheme in {"http", "https", "mailto"} or raw.startswith("#"):
                     if match.label.startswith("!"):
                         raise CollectionError(f"image is not approved: {relative}: {raw}")

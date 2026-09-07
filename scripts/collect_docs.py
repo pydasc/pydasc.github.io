@@ -132,6 +132,47 @@ class RenderedReferenceParser(HTMLParser):
             self.references.append(("image", values["src"] or ""))
 
 
+# Extensions such as attr_list can attach arbitrary attributes to almost any
+# rendered element. Only these (tag, attribute) pairs are how the site's own
+# link/image syntax legitimately reaches the DOM; every other unsafe
+# attribute or active element in the rendered output is rejected outright.
+RENDER_ALLOWED_ATTRIBUTES = {"a": {"href"}, "img": {"src"}}
+RENDER_FORBIDDEN_TAGS = ACTIVE_HTML_TAGS - set(RENDER_ALLOWED_ATTRIBUTES)
+
+
+class RenderedHTMLGuard(HTMLParser):
+    """Reject active elements or unsafe attributes in the rendered HTML."""
+
+    def __init__(self, source: PurePosixPath) -> None:
+        super().__init__(convert_charrefs=True)
+        self.source = source
+
+    def _reject(self, reason: str) -> None:
+        raise CollectionError(f"{reason}: {self.source}")
+
+    def _check(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        folded_tag = tag.casefold()
+        if folded_tag in RENDER_FORBIDDEN_TAGS:
+            self._reject("active rendered HTML is not allowed")
+        allowed = RENDER_ALLOWED_ATTRIBUTES.get(folded_tag, frozenset())
+        for name, _ in attrs:
+            folded = name.casefold()
+            if folded in allowed:
+                continue
+            if folded.startswith("on") or folded in UNSAFE_HTML_ATTRIBUTES:
+                self._reject("unsafe rendered attribute is not allowed")
+
+    def handle_starttag(
+        self, tag: str, attrs: list[tuple[str, str | None]]
+    ) -> None:
+        self._check(tag, attrs)
+
+    def handle_startendtag(
+        self, tag: str, attrs: list[tuple[str, str | None]]
+    ) -> None:
+        self._check(tag, attrs)
+
+
 def _validate_markdown_html(text: str, source: PurePosixPath) -> None:
     try:
         position = 0
@@ -285,7 +326,7 @@ def _markdown_visible_text(text: str) -> str:
             fence_quote_depth = quote_depth
             fence_list_indent = list_indent
             masked[offset:offset + len(line)] = " " * len(line)
-        elif line.startswith(("    ", "\t")):
+        elif content.startswith(("    ", "\t")):
             masked[offset:offset + len(line)] = " " * len(line)
         offset += len(line)
 
@@ -399,8 +440,11 @@ def _markdown_link_matches(
         index = link_end
     try:
         rendered = markdown.markdown(text, extensions=MARKDOWN_POLICY_EXTENSIONS)
+        RenderedHTMLGuard(source).feed(rendered)
         parser = RenderedReferenceParser()
         parser.feed(rendered)
+    except CollectionError:
+        raise
     except Exception as exc:
         raise CollectionError(f"cannot parse Markdown links in {source}") from exc
 
@@ -623,6 +667,7 @@ def load_manifest(path: Path, checkouts: dict[str, Path] | None = None) -> list[
 
 def _rewrite(text: str, entry: Entry, selected: dict[tuple[str, str], Entry], checkout: Path) -> str:
     def replacement(label: str, raw: str) -> str:
+        raw = unescape(raw)
         parsed = _split_link(raw, entry.source)
         if parsed.scheme in {"http", "https", "mailto"} or raw.startswith("#"):
             if label.startswith("!"):

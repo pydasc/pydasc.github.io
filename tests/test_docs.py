@@ -355,3 +355,24 @@ def test_portal_enters_dasc_through_project_first_overview():
  root=Path(__file__).parents[1]
  assert "[Open the DASC documentation](dasc-project-overview.md)" in (root/"docs/index.md").read_text()
  assert "[DASC project overview](dasc-project-overview.md)" in (root/"docs/getting-started.md").read_text()
+
+def test_attr_list_event_handler_on_a_link_is_rejected(tmp_path):
+ m,p,d=fixture(tmp_path,ptext='# P\n\n[Link](https://example.com/){onclick="alert(1)"}\n')
+ with pytest.raises(CollectionError,match="unsafe rendered attribute"):assemble(m,tmp_path/"out",p,d)
+
+def test_attr_list_event_handler_on_image_is_rejected(tmp_path):
+ m,p,d=fixture(tmp_path,ptext='# P\n\n![alt](https://example.com/x.png){onerror="alert(1)"}\n')
+ with pytest.raises(CollectionError,match="unsafe rendered attribute"):assemble(m,tmp_path/"out",p,d)
+
+def test_fence_glued_to_list_marker_does_not_hide_raw_script(tmp_path):
+ m,p,d=fixture(tmp_path,ptext="# P\n\n- ~~~html\n  <script>alert(1)</script>\n  ~~~\n")
+ with pytest.raises(CollectionError,match="active rendered HTML"):assemble(m,tmp_path/"out",p,d)
+
+def test_indented_code_inside_blockquote_is_not_a_live_link(tmp_path):
+ m,p,d=fixture(tmp_path,ptext="# P\n\n> quote\n>\n>     [literal](<guide file.md>)\n")
+ assemble(m,tmp_path/"out",p,d)
+
+def test_html_entity_in_destination_resolves_to_approved_file(tmp_path):
+ m,p,d=fixture(tmp_path,ptext="# P\n\n[Home](README&#46;md)\n")
+ out=tmp_path/"out";assemble(m,out,p,d);validate(m,out)
+ assert "[Home](index.md)" in (out/"pydasc/index.md").read_text()
