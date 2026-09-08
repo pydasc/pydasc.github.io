@@ -265,7 +265,7 @@ def test_source_symlink_and_non_regular_file_rejected(tmp_path):
   with pytest.raises(CollectionError,match="unsafe or missing source"):assemble(m,root/"out",p,d)
 
 def test_oversized_source_rejected(tmp_path, monkeypatch):
- m,p,d=fixture(tmp_path);monkeypatch.setattr(collect_docs,"MAX_FILE_BYTES",1)
+ m,p,d=fixture(tmp_path,ptext="# P\n" + "x" * 2048);monkeypatch.setattr(collect_docs,"MAX_FILE_BYTES",1024)
  with pytest.raises(CollectionError,match="oversized source"):assemble(m,tmp_path/"out",p,d)
 
 def test_approved_but_missing_source_is_rejected(tmp_path):

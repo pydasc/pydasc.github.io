@@ -14,11 +14,12 @@ import subprocess
 import sys
 import tempfile
 from collections import Counter
+from contextlib import contextmanager
 from dataclasses import dataclass
 from html import unescape
 from html.parser import HTMLParser
 from pathlib import Path, PurePosixPath
-from typing import Any
+from typing import Any, BinaryIO, Iterator
 from urllib.parse import SplitResult, quote, unquote_to_bytes, urlsplit
 
 import markdown
@@ -242,7 +243,7 @@ class MarkdownLink:
 def _mapping(value: object, keys: set[str], context: str) -> dict[str, Any]:
     if not isinstance(value, dict) or set(value) != keys:
         actual = set(value) if isinstance(value, dict) else set()
-        raise CollectionError(f"{context} keys invalid (missing={sorted(keys-actual)}, unknown={sorted(actual-keys)})")
+        raise CollectionError(f"{context} keys invalid (missing={sorted(keys-actual)}, unknown={sorted(map(repr, actual-keys))})")
     return value
 
 
@@ -256,15 +257,90 @@ def _path(value: object, context: str) -> PurePosixPath:
     ):
         raise CollectionError(f"{context} must be a non-empty POSIX path")
     result = PurePosixPath(value)
-    if result.is_absolute() or any(part in {"", ".", ".."} for part in result.parts) or any(c in value for c in "*?["):
+    if not result.parts or result.is_absolute() or any(part in {"", ".", ".."} for part in result.parts) or any(c in value for c in "*?["):
         raise CollectionError(f"unsafe {context}: {value!r}")
     return result
 
 
+@contextmanager
+def _open_regular_file(path: Path, context: str) -> Iterator[BinaryIO]:
+    """Open a regular file without following a swapped symlink or FIFO.
+
+    Check the directory entry before opening, then compare the opened file's
+    identity with both the original and current entries before reading bytes.
+    O_NONBLOCK prevents a replacement FIFO from blocking in open().
+    """
+    try:
+        initial = path.lstat()
+        if not stat.S_ISREG(initial.st_mode):
+            raise CollectionError(f"unsafe {context}: expected a regular file: {path}")
+        flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0)
+        with os.fdopen(os.open(path, flags), "rb") as stream:
+            opened = os.fstat(stream.fileno())
+            current = path.lstat()
+            identity = (opened.st_dev, opened.st_ino)
+            if (
+                not stat.S_ISREG(opened.st_mode)
+                or not stat.S_ISREG(current.st_mode)
+                or identity != (initial.st_dev, initial.st_ino)
+                or identity != (current.st_dev, current.st_ino)
+            ):
+                raise CollectionError(f"unsafe {context}: file changed while opening: {path}")
+            yield stream
+    except (OSError, ValueError) as exc:
+        if isinstance(exc, CollectionError):
+            raise
+        raise CollectionError(f"cannot read {context}: {path}") from exc
+
+
+def _read_regular_file(path: Path, context: str) -> bytes:
+    """Read publication input bytes with a strict size limit."""
+    with _open_regular_file(path, context) as stream:
+        if os.fstat(stream.fileno()).st_size > MAX_FILE_BYTES:
+            raise CollectionError(f"oversized {context}: {path}")
+        data = stream.read(MAX_FILE_BYTES + 1)
+        if len(data) > MAX_FILE_BYTES:
+            raise CollectionError(f"oversized {context}: {path}")
+        return data
+
+
+class _ManifestLoader(yaml.SafeLoader):
+    """Reject duplicate keys rather than silently changing a publication decision."""
+
+    def construct_mapping(self, node, deep=False):
+        self.flatten_mapping(node)
+        result = {}
+        for key_node, value_node in node.value:
+            key = self.construct_object(key_node, deep=deep)
+            if not isinstance(key, str) or key in result:
+                raise CollectionError("manifest keys must be unique strings")
+            result[key] = self.construct_object(value_node, deep=deep)
+        return result
+
+
+def _json_object(pairs):
+    result = {}
+    for key, value in pairs:
+        if key in result:
+            raise CollectionError(f"duplicate JSON key: {key!r}")
+        result[key] = value
+    return result
+
+
+def _read_json(data: bytes, context: str) -> Any:
+    try:
+        return json.loads(data, object_pairs_hook=_json_object)
+    except (ValueError, UnicodeError, RecursionError) as exc:
+        raise CollectionError(f"invalid {context}: {exc}") from exc
+
+
 def _read_yaml(path: Path) -> dict[str, Any]:
     try:
-        return yaml.safe_load(path.read_text(encoding="utf-8"))
-    except (OSError, UnicodeError, yaml.YAMLError) as exc:
+        # Website manifests may be explicitly addressed through a symlink;
+        # source contracts and generated files must not be symlinks.
+        data = _read_regular_file(path.resolve(), "website manifest")
+        return yaml.load(data.decode("utf-8"), Loader=_ManifestLoader)
+    except (OSError, UnicodeError, yaml.YAMLError, RecursionError, RuntimeError) as exc:
         raise CollectionError(f"cannot read website manifest: {exc}") from exc
 
 
@@ -589,27 +665,28 @@ def _source_contract(
     checkout: str,
     raw_contract: bytes | None = None,
 ) -> tuple[str, dict[str, dict[str, Any]]]:
-    try:
-        raw = json.loads(
-            raw_contract if raw_contract is not None else path.read_text(encoding="utf-8")
-        )
-    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
-        raise CollectionError(f"cannot read {name} publication manifest: {exc}") from exc
+    context = f"{name} publication manifest"
+    raw = _read_json(
+        raw_contract if raw_contract is not None else _read_regular_file(path, context),
+        context,
+    )
     root_keys = {"schema_version", "project", "repository", "source_commit", "files"}
     if name == "dasc":
         root_keys.add("publication_decision")
     root = _mapping(raw, root_keys, f"{name} publication manifest")
-    accepted_repository = root["repository"] in {
+    accepted_repository = isinstance(root["repository"], str) and root["repository"] in {
         repository,
         LEGACY_CONTRACT_REPOSITORIES[name],
     }
-    if root["schema_version"] != 1 or root["project"] != name or not accepted_repository:
+    if type(root["schema_version"]) is not int or root["schema_version"] != 1 or root["project"] != name or not accepted_repository:
         raise CollectionError(f"invalid {name} publication identity/schema")
     content = root["source_commit"]
     if not isinstance(content, str) or not SHA_RE.fullmatch(content):
         raise CollectionError(f"invalid {name} source_commit")
     if name == "dasc":
         decision = _mapping(root["publication_decision"], {"state", "reason", "evidence"}, "dasc decision")
+        if not isinstance(decision["state"], str) or not decision["state"].strip():
+            raise CollectionError("invalid DASC publication decision state")
         if decision["state"] != "approved":
             raise UnapprovedPublicationError("DASC publication decision is not approved")
         if any(
@@ -617,7 +694,7 @@ def _source_contract(
             for field in ("reason", "evidence")
         ):
             raise CollectionError("invalid DASC publication decision evidence")
-    if _git(path.parents[1], "rev-parse", "HEAD").strip() != checkout:
+    if _git(path.parent, "rev-parse", "HEAD").strip() != checkout:
         raise CollectionError(f"{name} checkout commit mismatch")
     approved: dict[str, dict[str, Any]] = {}
     approved_sources: set[str] = set()
@@ -639,7 +716,7 @@ def _source_contract(
         approved_sources.add(folded_source)
         approved_destinations.add(folded_destination)
         status = _mapping(item["documentation_status"], {"label", "evidence"}, "status")
-        if status["label"] not in DOCUMENTATION_STATUSES or not isinstance(status["evidence"], str) or not status["evidence"].strip():
+        if not isinstance(status["label"], str) or status["label"] not in DOCUMENTATION_STATUSES or not isinstance(status["evidence"], str) or not status["evidence"].strip():
             raise CollectionError(f"invalid status for {source}")
         rights_keys = {"spdx_license", "license_file"} | ({"attribution"} if name == "dasc" else set())
         rights = _mapping(item["redistribution"], rights_keys, "redistribution")
@@ -652,9 +729,9 @@ def _source_contract(
         ):
             raise CollectionError(f"invalid attribution for {source}")
         license_path = _path(rights["license_file"], "license_file")
-        if _git_object_kind(path.parents[1], content, license_path) != "blob":
+        if _git_object_kind(path.parent, content, license_path) != "blob":
             raise CollectionError(f"missing or unsafe license at approved commit for {source}")
-        license_bytes = _git(path.parents[1], "show", f"{content}:{license_path.as_posix()}", binary=True)
+        license_bytes = _git(path.parent, "show", f"{content}:{license_path.as_posix()}", binary=True)
         if not license_bytes:
             raise CollectionError(f"missing license at approved commit for {source}")
         approved[source.as_posix()] = {**item, "_destination": destination, "_status": status["label"], "_license": rights["spdx_license"], "_attribution": rights.get("attribution", "")}
@@ -663,7 +740,7 @@ def _source_contract(
 
 def load_manifest(path: Path, checkouts: dict[str, Path] | None = None) -> list[Entry]:
     root = _mapping(_read_yaml(path), {"schema_version", "sources"}, "website manifest")
-    if root["schema_version"] != 2 or not isinstance(root["sources"], dict) or set(root["sources"]) != set(EXPECTED):
+    if type(root["schema_version"]) is not int or root["schema_version"] != 2 or not isinstance(root["sources"], dict) or set(root["sources"]) != set(EXPECTED):
         raise CollectionError("website manifest must be schema 2 with exactly pydasc and dasc")
     entries: list[Entry] = []
     destinations: set[str] = set()
@@ -682,6 +759,7 @@ def load_manifest(path: Path, checkouts: dict[str, Path] | None = None) -> list[
             contract = checkout.joinpath(*manifest_rel.parts)
             if contract.is_symlink() or not _inside(contract.resolve(), checkout):
                 raise CollectionError(f"unsafe {name} publication manifest")
+            working_contract = _read_regular_file(contract, f"{name} publication manifest")
             if _git(checkout, "rev-parse", "HEAD").strip() != checkout_commit:
                 raise CollectionError(f"{name} checkout commit mismatch")
             committed_contract = _git(
@@ -690,10 +768,6 @@ def load_manifest(path: Path, checkouts: dict[str, Path] | None = None) -> list[
                 f"{checkout_commit}:{manifest_rel.as_posix()}",
                 binary=True,
             )
-            try:
-                working_contract = contract.read_bytes()
-            except OSError as exc:
-                raise CollectionError(f"cannot read {name} publication manifest") from exc
             if working_contract != committed_contract:
                 raise CollectionError(
                     f"{name} publication manifest differs from locked commit"
@@ -788,10 +862,18 @@ def _rewrite(text: str, entry: Entry, selected: dict[tuple[str, str], Entry], ch
 def _tree_state(repo: Path) -> tuple[str, tuple[tuple[str, str], ...]]:
     status = _git(repo, "status", "--porcelain=v1", "--untracked-files=all")
     files = []
-    for raw in _git(repo, "ls-files", "-co", "--exclude-standard").splitlines():
+    listed = _git(repo, "ls-files", "-z", "-co", "--exclude-standard", binary=True)
+    assert isinstance(listed, bytes)
+    for encoded in listed.split(b"\0"):
+        if not encoded:
+            continue
+        raw = os.fsdecode(encoded)
         path = repo / raw
         if path.is_file() and not path.is_symlink():
-            files.append((raw, hashlib.sha256(path.read_bytes()).hexdigest()))
+            # Unpublished upstream files can exceed the publication size limit;
+            # hash them in bounded chunks, using the same safe opening policy.
+            with _open_regular_file(path, "source integrity input") as stream:
+                files.append((raw, hashlib.file_digest(stream, "sha256").hexdigest()))
     return status, tuple(files)
 
 
@@ -903,11 +985,11 @@ def assemble(manifest: Path, output: Path, pydasc: Path, dasc: Path) -> list[dic
             if _git_object_kind(root, entry.content_commit, entry.source) != "blob":
                 raise CollectionError(f"source is not a regular Git blob: {entry.source}")
             committed = _git(root, "show", f"{entry.content_commit}:{entry.source.as_posix()}", binary=True)
-            if source.read_bytes() != committed:
+            data = _read_regular_file(source, "source document")
+            if data != committed:
                 raise CollectionError(f"source differs from approved commit: {entry.source}")
             destination = stage.joinpath(*entry.destination.parts)
             destination.parent.mkdir(parents=True, exist_ok=True)
-            data = source.read_bytes()
             if entry.source.suffix.lower() == ".md":
                 try:
                     body = data.decode("utf-8").replace("\r\n", "\n").replace("\r", "\n")

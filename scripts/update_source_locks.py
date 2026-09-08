@@ -15,6 +15,7 @@ from collect_docs import (
     EXPECTED,
     SHA_RE,
     UnapprovedPublicationError,
+    _read_regular_file,
     load_manifest,
 )
 
@@ -46,7 +47,7 @@ def _replace_lock(text: str, source: str, commit: str) -> str:
 def update(manifest: Path, checkouts: dict[str, Path]) -> dict[str, tuple[str, str]]:
     # Validate the current file fully before deriving any candidate document.
     load_manifest(manifest)
-    original = manifest.read_text(encoding="utf-8")
+    original = _read_regular_file(manifest.resolve(), "website manifest").decode("utf-8")
     candidate = original
     changes: dict[str, tuple[str, str]] = {}
     for name in EXPECTED:

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Validate assembled docs and checksummed inventory."""
 from __future__ import annotations
-import argparse, hashlib, json, os, stat, sys
+import argparse, hashlib, os, stat, sys
 from html import unescape
 from pathlib import Path, PurePosixPath
 from urllib.parse import quote
@@ -16,6 +16,8 @@ from collect_docs import (
     _check_inventory_path,
     _decode_link_path,
     _markdown_link_matches,
+    _read_json,
+    _read_regular_file,
     _split_link,
     load_manifest,
 )
@@ -25,20 +27,8 @@ def validate(manifest: Path, docs: Path) -> None:
     docs = docs.resolve()
     inventory_path = docs / "generated-inventory.json"
     _check_inventory_path(inventory_path, required=True)
-    try:
-        # Avoid following a replacement symlink or blocking on a replacement FIFO
-        # between the directory-entry check and opening the inventory.
-        flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0)
-        with os.fdopen(os.open(inventory_path, flags), "r", encoding="utf-8") as stream:
-            opened = os.fstat(stream.fileno())
-            current = inventory_path.lstat()
-            if not stat.S_ISREG(opened.st_mode) or not stat.S_ISREG(current.st_mode) or (
-                opened.st_dev, opened.st_ino
-            ) != (current.st_dev, current.st_ino):
-                raise CollectionError(f"unsafe inventory path: {inventory_path}")
-            inventory = json.load(stream)
-    except (OSError, json.JSONDecodeError) as exc: raise CollectionError(f"invalid inventory: {exc}") from exc
-    if not isinstance(inventory, dict) or set(inventory) != {"schema_version", "files"} or inventory["schema_version"] != 1 or not isinstance(inventory["files"], list): raise CollectionError("invalid inventory schema")
+    inventory = _read_json(_read_regular_file(inventory_path, "inventory"), "inventory")
+    if not isinstance(inventory, dict) or set(inventory) != {"schema_version", "files"} or type(inventory["schema_version"]) is not int or inventory["schema_version"] != 1 or not isinstance(inventory["files"], list): raise CollectionError("invalid inventory schema")
     required_item_keys = {"destination", "sha256", "repository", "source", "commit", "status", "license", "attribution"}
     expected = {}
     for index, item in enumerate(inventory["files"]):
@@ -58,9 +48,21 @@ def validate(manifest: Path, docs: Path) -> None:
     for namespace in EXPECTED:
         root = docs / namespace
         if root.is_symlink() or not root.is_dir(): raise CollectionError(f"missing/unsafe namespace: {namespace}")
-        for path in root.rglob("*"):
-            if path.is_symlink(): raise CollectionError(f"output symlink: {path}")
-            if path.is_file(): actual.add(path.relative_to(docs).as_posix())
+        pending = [root]
+        while pending:
+            # scandir propagates inspection errors instead of silently skipping
+            # inaccessible subtrees, as glob implementations can do.
+            with os.scandir(pending.pop()) as children:
+                for child in children:
+                    path = Path(child.path)
+                    mode = child.stat(follow_symlinks=False).st_mode
+                    if stat.S_ISLNK(mode): raise CollectionError(f"output symlink: {path}")
+                    if stat.S_ISDIR(mode):
+                        pending.append(path)
+                    elif stat.S_ISREG(mode):
+                        actual.add(path.relative_to(docs).as_posix())
+                    else:
+                        raise CollectionError(f"unsafe output entry (expected a regular file or directory): {path}")
     if actual != set(expected): raise CollectionError(f"output boundary differs: missing={sorted(set(expected)-actual)}, unexpected={sorted(actual-set(expected))}")
     for relative, item in expected.items():
         selection = selected[relative]
@@ -77,9 +79,10 @@ def validate(manifest: Path, docs: Path) -> None:
         if selection.source_name == "dasc" and not item["attribution"].strip():
             raise CollectionError(f"missing inventory attribution: {relative}")
         path = docs / relative
-        if hashlib.sha256(path.read_bytes()).hexdigest() != item["sha256"]: raise CollectionError(f"checksum mismatch: {relative}")
-        if path.suffix == ".md":
-            text = path.read_text(encoding="utf-8")
+        data = _read_regular_file(path, "generated document")
+        if hashlib.sha256(data).hexdigest() != item["sha256"]: raise CollectionError(f"checksum mismatch: {relative}")
+        if path.suffix.lower() == ".md":
+            text = data.decode("utf-8")
             encoded_source = quote(item["source"], safe="/")
             source_url = (
                 f"{item['repository']}/blob/{item['commit']}/{encoded_source}"
