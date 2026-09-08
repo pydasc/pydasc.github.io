@@ -6,8 +6,15 @@ authorized.
 
 ## Before the first deployment
 
-- [ ] Confirm Task 7 succeeds on the proposed default-branch commit, including
-      anonymous retrieval of both source locks.
+- [ ] Confirm the complete checks succeed on the proposed default-branch commit,
+      including authenticated retrieval of both source locks.
+- [ ] Configure `docs-sources` with an exact `main` branch rule (no tags) and
+      required reviewer approval by a trusted private-source maintainer.
+- [ ] Store the App credentials only in that environment; remove repository-level
+      and accessible organization-level copies after populating it. Follow
+      `github_app.md` to coordinate the credential and workflow cutover.
+- [ ] Review the commit and all executable code before approving source access.
+      Approval is required for checks, builds, and scheduled/manual source updates.
 - [ ] Inspect the locally built `site/` tree and confirm it contains only the
       approved public portal and imported documents.
 - [ ] In **Settings → Pages → Build and deployment**, set **Source** to

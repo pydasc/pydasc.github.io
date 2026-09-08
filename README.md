@@ -222,7 +222,10 @@ Do not hand-edit generated copies. Fix content upstream or adjust the reviewed c
 ## Continuous integration and deployment
 
 `docs-check.yml` runs for documentation-related pull requests and main-branch
-pushes with `contents: read` permission. It checks out the website without
+pushes with `contents: read` permission. Its unprivileged `docs` job runs repository
+tests and validates the website manifest without App secrets or private sources.
+On main pushes only, the separate `source-docs` job waits for approval in the
+protected `docs-sources` environment. It checks out the website without
 persisting credentials, reads the exact source locks from `docs-manifest.yml`,
 fetches those commits over authenticated HTTPS using a short-lived, read-only
 GitHub App token into detached temporary worktrees, and
@@ -233,7 +236,8 @@ artifact for symlinks, oversized files, credentials, and private or local paths.
 Its dependency cache is keyed by `requirements-docs.txt`; it neither uploads nor
 deploys an artifact.
 
-`deploy-pages.yml` runs on pushes to `main` and by manual dispatch. It should:
+`deploy-pages.yml` runs on pushes to `main` and by manual dispatch on `main`.
+Its build job also requires `docs-sources` approval. It should:
 
 - check out `pydasc/pydasc.github.io`;
 - configure Python and install `requirements-docs.txt`;
@@ -243,7 +247,8 @@ deploys an artifact.
 - upload `site/` with the official Pages artifact action;
 - deploy with the official Pages deployment action in the `github-pages` environment.
 
-`update-source-locks.yml` runs weekly and by manual dispatch. It uses the same
+`update-source-locks.yml` runs weekly and by manual dispatch on `main`, after
+`docs-sources` approval. It uses the same
 short-lived, read-only GitHub App token as the check and deployment workflows to
 clone each fixed private upstream repository and fetch the exact content commit declared
 by its candidate publication contract, and validates the complete candidate
@@ -252,6 +257,14 @@ candidate must pass tests, deterministic assembly, publication validation, the
 strict build, link and accessibility checks, and the complete artifact scan.
 Only then does the workflow create a branch and pull request. It never edits an
 upstream repository, changes the file allowlist, merges, or deploys.
+
+Store App credentials only in `docs-sources`, restricted to the exact `main`
+branch (no tags) and required approval by trusted private-source maintainers.
+Remove repository-level and accessible organization-level copies; workflow
+conditions alone cannot protect secrets from branch writers. PR jobs do not use
+this environment. See `docs/operations/github_app.md` for the migration and
+approval procedure. The separate `github-pages` environment protects final
+deployment, not source retrieval.
 
 The repository setting **Actions → General → Workflow permissions → Allow GitHub
 Actions to create and approve pull requests** must permit pull-request creation.

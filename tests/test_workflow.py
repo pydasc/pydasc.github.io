@@ -19,7 +19,16 @@ def test_docs_check_workflow_is_valid_and_least_privileged() -> None:
 
     assert set(workflow) >= {"name", "on", "permissions", "jobs"}
     assert workflow["permissions"] == {"contents": "read"}
-    assert set(workflow["jobs"]) == {"docs"}
+    assert set(workflow["jobs"]) == {"docs", "source-docs"}
+    public_job = workflow["jobs"]["docs"]
+    assert "environment" not in public_job
+    assert "secrets." not in yaml.safe_dump(public_job)
+    assert "source-token" not in yaml.safe_dump(public_job)
+    assert "load_manifest" in yaml.safe_dump(public_job)
+    source_job = workflow["jobs"]["source-docs"]
+    assert source_job["needs"] == "docs"
+    assert source_job["environment"] == "docs-sources"
+    assert source_job["if"] == "github.event_name == 'push' && github.ref == 'refs/heads/main'"
     assert "pull_request" in workflow["on"]
     assert "push" in workflow["on"]
     for event in ("pull_request", "push"):
@@ -34,8 +43,6 @@ def test_docs_check_pins_actions_and_reproduces_local_build() -> None:
 
     assert uses_lines
     assert all(ACTION_PIN.match(line) for line in uses_lines)
-    trusted_source_condition = "if: github.event_name == 'push'"
-    assert text.count(trusted_source_condition) == 7
     assert "- name: Run repository tests\n        run: python -m pytest" in text
     for command in (
         "persist-credentials: false",
@@ -79,6 +86,11 @@ def test_pages_workflow_has_exact_permissions_and_release_controls() -> None:
     assert set(workflow["jobs"]) == {"build", "deploy"}
     assert workflow["jobs"]["deploy"]["needs"] == "build"
     assert workflow["jobs"]["deploy"]["environment"]["name"] == "github-pages"
+    assert workflow["jobs"]["build"]["environment"] == "docs-sources"
+    assert workflow["jobs"]["build"]["if"] == (
+        "github.ref == 'refs/heads/main' && "
+        "(github.event_name == 'push' || github.event_name == 'workflow_dispatch')"
+    )
 
 
 def test_pages_artifact_is_validated_scanned_and_sha_pinned() -> None:
@@ -125,6 +137,11 @@ def test_source_update_workflow_proposes_validated_review_only_prs() -> None:
 
     assert set(workflow["on"]) == {"schedule", "workflow_dispatch"}
     assert workflow["permissions"] == {"contents": "write", "pull-requests": "write"}
+    assert workflow["jobs"]["propose"]["environment"] == "docs-sources"
+    assert workflow["jobs"]["propose"]["if"] == (
+        "github.ref == 'refs/heads/main' && "
+        "(github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')"
+    )
     assert uses_lines and all(ACTION_PIN.match(line) for line in uses_lines)
     assert "actions/create-github-app-token@" in text
     assert "secrets.DASC_DOCS_APP_CLIENT_ID" in text
@@ -144,3 +161,32 @@ def test_source_update_workflow_proposes_validated_review_only_prs() -> None:
     assert "gh pr create" in text
     assert "git push" in text
     assert "merge" not in text.casefold().replace("merging", "")
+
+
+def test_every_app_credential_consumer_uses_the_source_environment() -> None:
+    consumers = set()
+    for path in (ROOT / ".github/workflows").glob("*.yml"):
+        workflow = yaml.load(path.read_text(), Loader=yaml.BaseLoader)
+        for job_id, job in workflow["jobs"].items():
+            if "DASC_DOCS_APP_" not in yaml.safe_dump(job):
+                continue
+            consumers.add((path.name, job_id))
+            assert job["environment"] == "docs-sources"
+            assert "github.ref == 'refs/heads/main'" in job["if"]
+            tokens = [step for step in job["steps"]
+                      if step.get("uses", "").startswith("actions/create-github-app-token@")]
+            assert len(tokens) == 1
+            assert tokens[0]["with"]["permission-contents"] == "read"
+    assert consumers == {
+        ("docs-check.yml", "source-docs"),
+        ("deploy-pages.yml", "build"),
+        ("update-source-locks.yml", "propose"),
+    }
+
+
+def test_source_environment_guide_requires_server_side_protection() -> None:
+    guide = (ROOT / "docs/operations/github_app.md").read_text()
+    for requirement in ("docs-sources", "Required reviewers", "main", "branch",
+                        "repository-level", "organization-level", "cannot retrieve"):
+        assert requirement in guide
+    assert "Use repository secrets rather than" not in guide
