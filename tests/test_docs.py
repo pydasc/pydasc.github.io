@@ -522,6 +522,97 @@ def test_output_overlap_is_rejected_before_staging_or_source_inspection(tmp_path
     assert heads == (git(pydasc, "rev-parse", "HEAD"), git(dasc, "rev-parse", "HEAD"))
 
 
+@pytest.mark.parametrize("location", [
+    "pydasc", "dasc", "inside_existing", "inside_missing", "ancestor", "checkout_alias",
+])
+def test_case_alias_output_overlap_rejected_before_any_work(tmp_path, monkeypatch, location):
+    manifest, pydasc, dasc = fixture(tmp_path)
+    alias = pydasc.with_name("PYDASC")
+    if not alias.exists() or not alias.samefile(pydasc):
+        pytest.skip("requires a case-insensitive filesystem")
+    (pydasc / "generated").mkdir()
+    output = {
+        "pydasc": alias,
+        "dasc": dasc.with_name("DASC"),
+        "inside_existing": alias / "generated",
+        "inside_missing": alias / "not-created" / "nested",
+        "ancestor": tmp_path.with_name(tmp_path.name.upper()),
+        "checkout_alias": pydasc / "not-created" / "nested",
+    }[location]
+    before = (hashes(pydasc), hashes(dasc))
+    heads = (git(pydasc, "rev-parse", "HEAD"), git(dasc, "rev-parse", "HEAD"))
+
+    def unexpected_work(*args, **kwargs):
+        pytest.fail("case aliases must fail before inspection, staging, or deletion")
+
+    monkeypatch.setattr(collect_docs, "_tree_state", unexpected_work)
+    monkeypatch.setattr(collect_docs.tempfile, "TemporaryDirectory", unexpected_work)
+    monkeypatch.setattr(collect_docs.shutil, "rmtree", unexpected_work)
+    with pytest.raises(CollectionError, match="overlaps"):
+        assemble(manifest, output, alias if location == "checkout_alias" else pydasc, dasc)
+    assert before == (hashes(pydasc), hashes(dasc))
+    assert heads == (git(pydasc, "rev-parse", "HEAD"), git(dasc, "rev-parse", "HEAD"))
+    assert not (pydasc / "not-created").exists()
+
+
+@pytest.mark.parametrize("location", ["PYDASC/manifest.yml", "DASC/manifest.yml", "GENERATED-INVENTORY.JSON"])
+def test_case_alias_output_cannot_replace_manifest(tmp_path, location):
+    manifest, pydasc, dasc = fixture(tmp_path)
+    output = tmp_path / "out"
+    relocated = output / location
+    relocated.parent.mkdir(parents=True)
+    relocated.write_bytes(manifest.read_bytes())
+    alias = output / location.lower()
+    if not alias.exists() or not alias.samefile(relocated):
+        pytest.skip("requires a case-insensitive filesystem")
+    before = hashes(output)
+    with pytest.raises(CollectionError, match="replace the input manifest"):
+        assemble(relocated, output, pydasc, dasc)
+    assert hashes(output) == before
+
+
+def test_filesystem_containment_walks_existing_alias_ancestors(tmp_path):
+    # Exercise identity comparisons on case-sensitive CI too; resolve() is
+    # deliberately not used here because it would remove this test alias.
+    root = tmp_path / "source"
+    root.mkdir()
+    alias = tmp_path / "alias"
+    alias.symlink_to(root, target_is_directory=True)
+    assert collect_docs._filesystem_inside(alias, root)
+    assert collect_docs._filesystem_inside(alias / "missing" / "nested", root)
+    assert collect_docs._filesystem_inside(root / "missing" / "nested", alias)
+    assert not collect_docs._filesystem_inside(tmp_path / "elsewhere", root)
+    assert not collect_docs._filesystem_inside(root, tmp_path / "missing")
+
+
+def test_filesystem_containment_does_not_fold_distinct_names(tmp_path):
+    root = tmp_path / "source"
+    root.mkdir()
+    other = tmp_path / "SOURCE"
+    if other.exists():
+        pytest.skip("requires a case-sensitive filesystem")
+    other.mkdir()
+    assert not collect_docs._filesystem_inside(other / "missing", root)
+    assert not collect_docs._filesystem_inside(root, other)
+
+
+def test_output_identity_inspection_errors_fail_closed(tmp_path, monkeypatch):
+    output = tmp_path / "out"
+    checkout = tmp_path / "source"
+    checkout.mkdir()
+    original_stat = Path.stat
+
+    def denied_stat(path, *args, **kwargs):
+        if path == checkout:
+            raise PermissionError("cannot inspect source identity")
+        return original_stat(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "stat", denied_stat)
+    with pytest.raises(CollectionError, match="cannot inspect output paths"):
+        collect_docs._preflight_output(output, {"pydasc": checkout}, tmp_path / "lock.yml")
+    assert not output.exists()
+
+
 @pytest.mark.parametrize("kind", ["symlink", "dangling", "directory", "fifo"])
 def test_inventory_path_rejected_before_any_output_changes(tmp_path, kind):
     import os

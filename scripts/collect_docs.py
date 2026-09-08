@@ -807,6 +807,31 @@ def _check_inventory_path(path: Path, *, required: bool = False) -> None:
         raise CollectionError(f"unsafe inventory path (expected a regular file): {path}")
 
 
+def _filesystem_inside(path: Path, root: Path) -> bool:
+    """Include filesystem aliases without assuming case-insensitive names.
+
+    resolve() removes symlinks but preserves spelling on case-insensitive
+    filesystems. Compare identities of existing ancestors as well, so even a
+    not-yet-created destination beneath an alias of root is contained.
+    Inspection errors other than missing paths must propagate to the caller.
+    """
+    if _inside(path, root):
+        return True
+    try:
+        root_stat = root.stat()
+    except FileNotFoundError:
+        return False
+    identity = (root_stat.st_dev, root_stat.st_ino)
+    for ancestor in (path, *path.parents):
+        try:
+            ancestor_stat = ancestor.stat()
+        except FileNotFoundError:
+            continue
+        if (ancestor_stat.st_dev, ancestor_stat.st_ino) == identity:
+            return True
+    return False
+
+
 def _preflight_output(output: Path, checkouts: dict[str, Path], manifest: Path) -> Path:
     """Validate every publication target without creating or removing anything."""
     try:
@@ -816,7 +841,7 @@ def _preflight_output(output: Path, checkouts: dict[str, Path], manifest: Path) 
         if output.exists() and not output.is_dir():
             raise CollectionError(f"unsafe output directory: {output}")
         for name, checkout in checkouts.items():
-            if _inside(output, checkout) or _inside(checkout, output):
+            if _filesystem_inside(output, checkout) or _filesystem_inside(checkout, output):
                 raise CollectionError(f"output overlaps {name} source checkout: {output}")
         # Protect both the directory entry used as input and its resolved target.
         manifest_paths = {manifest.parent.resolve() / manifest.name, manifest.resolve()}
@@ -824,10 +849,10 @@ def _preflight_output(output: Path, checkouts: dict[str, Path], manifest: Path) 
             target = output / name
             if target.is_symlink() or (target.exists() and not target.is_dir()):
                 raise CollectionError(f"unsafe generated namespace: {target}")
-            if any(_inside(path, target) for path in manifest_paths):
+            if any(_filesystem_inside(path, target) for path in manifest_paths):
                 raise CollectionError(f"output would replace the input manifest: {manifest}")
         inventory = output / "generated-inventory.json"
-        if inventory in manifest_paths:
+        if any(_filesystem_inside(path, inventory) for path in manifest_paths):
             raise CollectionError(f"output would replace the input manifest: {manifest}")
         _check_inventory_path(inventory)
     except (OSError, RuntimeError) as exc:
