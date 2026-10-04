@@ -1,5 +1,7 @@
 # Repository TODO
 
+**Reviewed 4 October 2026:** [current documentation/CI record](../docs/operations/document-status.md). Completed work is checked below; recurring maintenance and unverified governance remain open.
+
 This file tracks repository work that is not intended for publication. Complete
 items in priority order; do not weaken the publication boundary to bypass a
 failing check.
@@ -39,8 +41,10 @@ failing check.
 - [x] Inspect the final diff and ensure it contains only approved repository
   changes. Do not include `site/`, caches, temporary checkouts, credentials, or
   local browser guidance.
-- [ ] After an authorized commit and push, confirm that both Documentation
-  checks and Deploy documentation to Pages succeed.
+- [x] Confirm Documentation checks and Deploy documentation to Pages succeed
+  at committed 95de4c6 (4 October 2026; run links in the status record).
+- [ ] Recheck both workflows after the next authorized commit/push; local
+  documentation edits are not covered by the previous remote success.
 
 ## P2 — Strengthen maintainability
 
@@ -55,8 +59,9 @@ failing check.
 - [ ] Refactor the compact formatting in `scripts/validate_docs.py` and
   `tests/test_docs.py` without changing behavior, then adopt a consistent lint
   configuration if desired.
-- [ ] Keep `requirements-docs.txt` pinned and evaluate the announced MkDocs 2.0
-  compatibility break before any dependency upgrade.
+- [x] Refresh the pinned documentation dependency baseline and validate it
+  with strict MkDocs 1.6.1 checks (record 020).
+- [ ] Evaluate MkDocs 2.0 compatibility before a future major upgrade.
 
 ## P3 — Recurring release maintenance
 

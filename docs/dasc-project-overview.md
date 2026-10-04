@@ -77,7 +77,7 @@ its source, solve the matching field problem, define how the field affects
 particles, propagate only supported parameter sensitivities, and test every
 claim against independent evidence and convergence criteria.
 
-## Current status and limits
+## Reviewed snapshot status and limits
 
 - The portal publishes an approved DASC repository overview, currently labeled
   **Unvalidated** because it describes planned research and future validation.
@@ -88,8 +88,10 @@ claim against independent evidence and convergence criteria.
   and causal eigenmode derivations, DA/TPSA/Lie methods, a method comparison,
   and a claim-level validation matrix. They do not publish an approved numerical
   result package.
-- Planned kinetic-resonance, optimization, aperture-coupling, and
-  self-consistent-trajectory results must not be described as completed.
+- This portal has not published numerical result packages qualifying
+  kinetic-resonance, optimization, aperture-coupling or self-consistent
+  electromagnetic trajectories. That release boundary does not assert that
+  the latest upstream implementation lacks those capabilities.
 - The two formulations intentionally omit or postpone phenomena outside their
   stated boundaries; those limits will be recorded with each derivation rather
   than inferred here.

@@ -1,5 +1,7 @@
 # Documentation review checklists
 
+This is a reusable checklist for each release. Historical accessibility/content checks are recorded in completed execution records 010 and 019; unchecked boxes below are not a claim that those reviews never occurred. See [current status](../operations/document-status.md).
+
 Use these checklists before adding a page to public navigation and again when inspecting a release artifact. Record failures and owner decisions; do not waive a check by silently editing technical meaning.
 
 ## Accessibility review

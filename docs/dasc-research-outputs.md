@@ -35,11 +35,12 @@ No such allowlisted package is currently published by this portal.
 
 ## Current public source overview
 
-The [reviewed DASC repository overview](dasc/index.md) preserves the current
+The [reviewed DASC repository overview](dasc/index.md) preserves the snapshot
 paper titles, milestones, source list, and reproducibility rule at an immutable
 commit. Its **Unvalidated** label reflects planned research and future validation
-rather than a conclusion that the project identity or documentation architecture
-is scientifically invalid.
+at that reviewed source revision; it is not a current readiness assessment
+of every upstream manuscript. The portal has no separately approved numerical
+result package that would support replacing this status.
 
 For reusable concepts, return to the [project overview](dasc-project-overview.md),
 [physics foundations](dasc-physics-foundations.md), or

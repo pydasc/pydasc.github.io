@@ -1,0 +1,458 @@
+{
+  "review_date": "2026-10-04",
+  "baseline_commit": "95de4c6757f7f1189a04f69047d97f9e5a9a9944",
+  "scope": "Tracked docs/ and tasks/ plus new status records; website includes collector-generated staging and three ignored historical prompts. Historical logs and scientific reference bytes are preserved. Status/link review only; not a new theoretical or numerical qualification.",
+  "inventory_self_excluded": true,
+  "files": [
+    {
+      "path": "docs/CODEX_TASKS_DASC_PHYSICS_DOCUMENTATION.md",
+      "tracked_before_review": false,
+      "disposition": "ignored_historical_prompt_annotated",
+      "sha256": "0de8e301bc10978309bea6e0f635dabbfe26abfcdacdd9b58c3602aa09603a6b"
+    },
+    {
+      "path": "docs/CODEX_TASK_READTHEDOCS_STYLE.md",
+      "tracked_before_review": false,
+      "disposition": "ignored_historical_prompt_annotated",
+      "sha256": "f8f2bbf9eb0e2267865128b8228d07e6a63e2cf6a1e240fea884823f6a46b90a"
+    },
+    {
+      "path": "docs/CODEX_TASK_WEBSITE.md",
+      "tracked_before_review": false,
+      "disposition": "ignored_historical_prompt_annotated",
+      "sha256": "1ffb7e3a2a0aef4c30e3cb8b35d8466cbfb6dd29b94056640e2911b7e0c8770c"
+    },
+    {
+      "path": "docs/architecture/README.md",
+      "tracked_before_review": true,
+      "disposition": "current_document_reconciled",
+      "sha256": "2a5e17238cdedcf58669b9fe4430aeea29b3c6cce23e3c92abe52f3ae092f59c"
+    },
+    {
+      "path": "docs/architecture/api-and-examples-decision.md",
+      "tracked_before_review": true,
+      "disposition": "screened_for_status_and_link_consistency_no_edit_needed",
+      "sha256": "f09232c61e2085fa693c624da7bdc08185a22424f766b87c90b08f7dbbc6ec0b"
+    },
+    {
+      "path": "docs/architecture/index.md",
+      "tracked_before_review": true,
+      "disposition": "screened_for_status_and_link_consistency_no_edit_needed",
+      "sha256": "a141838d4be90440ec464c7b8dc542bd4962022b9edaedb0eb95afc3b3f9e33c"
+    },
+    {
+      "path": "docs/architecture/review-checklists.md",
+      "tracked_before_review": true,
+      "disposition": "current_document_reconciled",
+      "sha256": "96b8fa6e2b916f4d73e9760a501eedeb3240d44a1a26ad23d391ad4d777dc3ab"
+    },
+    {
+      "path": "docs/architecture/status.md",
+      "tracked_before_review": true,
+      "disposition": "screened_for_status_and_link_consistency_no_edit_needed",
+      "sha256": "9e468e3dd7d881890d247254cf31d58be6cb4c7e99d8b4393e57c74acc29cfb8"
+    },
+    {
+      "path": "docs/contributing.md",
+      "tracked_before_review": true,
+      "disposition": "screened_for_status_and_link_consistency_no_edit_needed",
+      "sha256": "fa6b85139ba7f59c8a4be5968c07f9a1b54a976f7b4615e1f4edd02d47bfdcba"
+    },
+    {
+      "path": "docs/dasc-conventions.md",
+      "tracked_before_review": true,
+      "disposition": "screened_for_status_and_link_consistency_no_edit_needed",
+      "sha256": "fec5e221c96c34540f4b1e5a12ba23a332644da599ffd3db115e9e7939a47065"
+    },
+    {
+      "path": "docs/dasc-da-lie-maps.md",
+      "tracked_before_review": true,
+      "disposition": "screened_for_status_and_link_consistency_no_edit_needed",
+      "sha256": "7fd3452c93fc028e9a20e8c0470d38456b28ac3e92eea3d5c97021e6b6fe4e6c"
+    },
+    {
+      "path": "docs/dasc-da-pipelines.md",
+      "tracked_before_review": true,
+      "disposition": "screened_for_status_and_link_consistency_no_edit_needed",
+      "sha256": "8ef2dcb40845fe7fc45511c27cb178d90a004d22957ee3ba0b2cea606bdca770"
+    },
+    {
+      "path": "docs/dasc-da-self-consistency.md",
+      "tracked_before_review": true,
+      "disposition": "screened_for_status_and_link_consistency_no_edit_needed",
+      "sha256": "304f9359f44644cf938e93e6b0c90db2d06cce2ddb18a27e83e08818f5e18cc3"
+    },
+    {
+      "path": "docs/dasc-da-tpsa.md",
+      "tracked_before_review": true,
+      "disposition": "screened_for_status_and_link_consistency_no_edit_needed",
+      "sha256": "d1f5bc87b35ef2cca2172251cdc7f9933ffacfef2260a88fd0854f8d3e737501"
+    },
+    {
+      "path": "docs/dasc-da-verification.md",
+      "tracked_before_review": true,
+      "disposition": "screened_for_status_and_link_consistency_no_edit_needed",
+      "sha256": "b54f3e0b2d1f797502639330253087a278b1141f9314ea14d7dde32a5ed06681"
+    },
+    {
+      "path": "docs/dasc-differential-algebra-methods.md",
+      "tracked_before_review": true,
+      "disposition": "screened_for_status_and_link_consistency_no_edit_needed",
+      "sha256": "a749a9d77ef372e55aa0d1590a5c448f6218fc02e93e36bac5c11bbc3b5c37c5"
+    },
+    {
+      "path": "docs/dasc-eigenmode-aperture.md",
+      "tracked_before_review": true,
+      "disposition": "screened_for_status_and_link_consistency_no_edit_needed",
+      "sha256": "d201bc74b1f2326290597e564e80be7853fc56a37d5b23b8ccf1a5b21bf43e29"
+    },
+    {
+      "path": "docs/dasc-eigenmode-closed-cavity.md",
+      "tracked_before_review": true,
+      "disposition": "screened_for_status_and_link_consistency_no_edit_needed",
+      "sha256": "f06f041f0102d664a8a388352d6168e31451608c7e8de1f69fe0259ffe8ed06c"
+    },
+    {
+      "path": "docs/dasc-eigenmode-fields.md",
+      "tracked_before_review": true,
+      "disposition": "screened_for_status_and_link_consistency_no_edit_needed",
+      "sha256": "934cd7be84cc1b4572fc3fff618dfefcd2d863211ceee7a6f71f9b51000ae933"
+    },
+    {
+      "path": "docs/dasc-eigenmode-method.md",
+      "tracked_before_review": true,
+      "disposition": "screened_for_status_and_link_consistency_no_edit_needed",
+      "sha256": "77369b35ecae80d7a583291eb94a9ffc9cdd9f23bf3208be862016da121feca1"
+    },
+    {
+      "path": "docs/dasc-eigenmode-problem.md",
+      "tracked_before_review": true,
+      "disposition": "screened_for_status_and_link_consistency_no_edit_needed",
+      "sha256": "42b19676e6b748802f12ab2592dfd8465882707d8a6abb2526e6a0acca8c9272"
+    },
+    {
+      "path": "docs/dasc-eigenmode-verification.md",
+      "tracked_before_review": true,
+      "disposition": "current_document_reconciled",
+      "sha256": "0b1173f65d764f5e870dd01cae0841990f1d406ee75ce91623866d2cdbae26b1"
+    },
+    {
+      "path": "docs/dasc-method-selection.md",
+      "tracked_before_review": true,
+      "disposition": "screened_for_status_and_link_consistency_no_edit_needed",
+      "sha256": "145d536192c240562b410a9f8a24b0fab80c0a82294bd27afa20ce44559a9db2"
+    },
+    {
+      "path": "docs/dasc-physics-foundations.md",
+      "tracked_before_review": true,
+      "disposition": "screened_for_status_and_link_consistency_no_edit_needed",
+      "sha256": "ce687bbe788d9c3e5f79c1a594a316793ae9594dc98d57f4588ce434f48f29cf"
+    },
+    {
+      "path": "docs/dasc-potentials-fields-dynamics.md",
+      "tracked_before_review": true,
+      "disposition": "screened_for_status_and_link_consistency_no_edit_needed",
+      "sha256": "0f21679e9135bdbd31c6878b49b3d8e2e107b292fc5abb1f315e1f316d83ab9f"
+    },
+    {
+      "path": "docs/dasc-project-overview.md",
+      "tracked_before_review": true,
+      "disposition": "current_document_reconciled",
+      "sha256": "7108e7ff5167caa320d73b67c5602c8cab38a55206ba75a43280ea3cf4d996cc"
+    },
+    {
+      "path": "docs/dasc-reproducibility.md",
+      "tracked_before_review": true,
+      "disposition": "screened_for_status_and_link_consistency_no_edit_needed",
+      "sha256": "f271986309188311d7b2a99f23ab5b017b08b07f3fe079f69effb8afa047c019"
+    },
+    {
+      "path": "docs/dasc-research-outputs.md",
+      "tracked_before_review": true,
+      "disposition": "current_document_reconciled",
+      "sha256": "2e5ffc758efa9155833510f0704eaf63bc2aa00a67c3ba92c8285e7f2a8aed51"
+    },
+    {
+      "path": "docs/dasc-self-consistent-space-charge.md",
+      "tracked_before_review": true,
+      "disposition": "screened_for_status_and_link_consistency_no_edit_needed",
+      "sha256": "30aaf7bbe8aaf2596980bbf5c8af31faa3b185e7025c49657c69f3e526187f20"
+    },
+    {
+      "path": "docs/dasc-tgf-field-kick.md",
+      "tracked_before_review": true,
+      "disposition": "screened_for_status_and_link_consistency_no_edit_needed",
+      "sha256": "063e6a04f47435c899474c7a08f864689a3296db9baade5c5aaf04a57d2d1e57"
+    },
+    {
+      "path": "docs/dasc-tgf-formulation.md",
+      "tracked_before_review": true,
+      "disposition": "screened_for_status_and_link_consistency_no_edit_needed",
+      "sha256": "f38006df41452cff2227088b6a9a3bb01e6a5db7b526eec80ff334e35daa75de"
+    },
+    {
+      "path": "docs/dasc-tgf-free-space-poisson.md",
+      "tracked_before_review": true,
+      "disposition": "screened_for_status_and_link_consistency_no_edit_needed",
+      "sha256": "433d50b7db9ecf7b96c457565632e060da6a5123b3171891e130c89fe4bfa416"
+    },
+    {
+      "path": "docs/dasc-tgf-method.md",
+      "tracked_before_review": true,
+      "disposition": "screened_for_status_and_link_consistency_no_edit_needed",
+      "sha256": "e1a029ba53497f62d56715a285f2967e3829629b3a7da20e217e8aa1601b512f"
+    },
+    {
+      "path": "docs/dasc-tgf-verification.md",
+      "tracked_before_review": true,
+      "disposition": "current_document_reconciled",
+      "sha256": "ccac710b94a781444b1b19abb46a2ee93f0aa0108ec59d85efb18c32807c83c2"
+    },
+    {
+      "path": "docs/dasc-validation-matrix.md",
+      "tracked_before_review": true,
+      "disposition": "current_document_reconciled",
+      "sha256": "f55bdbad85ce6664910ecdf48e4a5c27a62321de16c3b7882c868de258280372"
+    },
+    {
+      "path": "docs/dasc-validity-limits.md",
+      "tracked_before_review": true,
+      "disposition": "current_document_reconciled",
+      "sha256": "b67307cd0c82bb3cc1c88cad37adda85493602381c0dc0132ce40867c390ca0a"
+    },
+    {
+      "path": "docs/dasc/index.md",
+      "tracked_before_review": false,
+      "disposition": "generated_from_unchanged_reviewed_source_locks",
+      "sha256": "3803ccfc914a2ea99ed9b71587f1ca463d7c18e8049372c9650a1d2ae84e523b"
+    },
+    {
+      "path": "docs/exec-plans/completed/001-dasc-documentation-website.md",
+      "tracked_before_review": true,
+      "disposition": "historical_record_preserved",
+      "sha256": "80d43ed5a93f90d1cfbc33990960df4475e073b8b0858b7e5624027f95a94f7a"
+    },
+    {
+      "path": "docs/exec-plans/completed/002-correct-and-baseline-repository.md",
+      "tracked_before_review": true,
+      "disposition": "historical_record_preserved",
+      "sha256": "916411796248012b6fef7b82ece071dc86db9994bcfd6b2ab55668692dcaf21a"
+    },
+    {
+      "path": "docs/exec-plans/completed/003-documentation-information-architecture.md",
+      "tracked_before_review": true,
+      "disposition": "historical_record_preserved",
+      "sha256": "d7cfe2f3f224be1476890f74360c9aae80f277bf6b37e86d8de2300cf864d627"
+    },
+    {
+      "path": "docs/exec-plans/completed/004-local-mkdocs-scaffold.md",
+      "tracked_before_review": true,
+      "disposition": "historical_record_preserved",
+      "sha256": "a8bf904ca50bff02fc1ebc478053361246dd48184e0e2fd85b63ecf8bec80465"
+    },
+    {
+      "path": "docs/exec-plans/completed/005-deterministic-source-assembly.md",
+      "tracked_before_review": true,
+      "disposition": "historical_record_preserved",
+      "sha256": "e373c5fa2698eb75d188a1b4279b99511e67ea2b83181a4cb7a27cdea21a4f65"
+    },
+    {
+      "path": "docs/exec-plans/completed/006-api-and-examples-decision.md",
+      "tracked_before_review": true,
+      "disposition": "historical_record_preserved",
+      "sha256": "d7e209a43f6ad078bee6f65899a1f202fde59ee8cb2252e24622b4bf48f2e410"
+    },
+    {
+      "path": "docs/exec-plans/completed/007-github-actions-validation.md",
+      "tracked_before_review": true,
+      "disposition": "historical_record_preserved",
+      "sha256": "a6a01e02a4b52541cd44e1df195e7cb18c4971f43f2feaee2ea0cfe072af3bbd"
+    },
+    {
+      "path": "docs/exec-plans/completed/008-github-pages-deployment.md",
+      "tracked_before_review": true,
+      "disposition": "historical_record_preserved",
+      "sha256": "c3505b562fb42c646b10abfc801f17d43aa89911670d6997ebac617558e1b429"
+    },
+    {
+      "path": "docs/exec-plans/completed/009-readthedocs-visual-style.md",
+      "tracked_before_review": true,
+      "disposition": "historical_record_preserved",
+      "sha256": "c82f740cf52190475a59fb6d71ad34978061ea73e244e869787d861770f69879"
+    },
+    {
+      "path": "docs/exec-plans/completed/010-public-release-content-accessibility-review.md",
+      "tracked_before_review": true,
+      "disposition": "historical_record_preserved",
+      "sha256": "cdfc33c47d495df133f9a55247ecaf20a8d84ba1f5c8fc25d1dc3ff6b3a15393"
+    },
+    {
+      "path": "docs/exec-plans/completed/011-automated-source-update-pull-requests.md",
+      "tracked_before_review": true,
+      "disposition": "historical_record_preserved",
+      "sha256": "3536c5b6e247ef6b6da2731f6c6e61d74bd51080a9db6ffc1b15fe829c0b96f1"
+    },
+    {
+      "path": "docs/exec-plans/completed/012-dasc-physics-documentation-task-0.md",
+      "tracked_before_review": true,
+      "disposition": "historical_record_preserved",
+      "sha256": "a4e14fd86d3e1adeb1a61ce7cf2b565a730d3ba4f770f03ef3ce1c6f20d8c846"
+    },
+    {
+      "path": "docs/exec-plans/completed/013-dasc-physics-documentation-task-1.md",
+      "tracked_before_review": true,
+      "disposition": "historical_record_preserved",
+      "sha256": "dc8604324faaa80fef78b204ca5c86c5a9a26ac381358aab89bf04130b2c82e5"
+    },
+    {
+      "path": "docs/exec-plans/completed/014-dasc-physics-documentation-task-2.md",
+      "tracked_before_review": true,
+      "disposition": "historical_record_preserved",
+      "sha256": "cf74f4e54245d095ef87b38c7fb67782d1fa1475442150ed930f58b0fe343b96"
+    },
+    {
+      "path": "docs/exec-plans/completed/015-dasc-physics-documentation-task-3.md",
+      "tracked_before_review": true,
+      "disposition": "historical_record_preserved",
+      "sha256": "5b48c5c79f5c721720f60da754ac32199393cd6219044fa630753e570526b23e"
+    },
+    {
+      "path": "docs/exec-plans/completed/016-dasc-physics-documentation-task-4.md",
+      "tracked_before_review": true,
+      "disposition": "historical_record_preserved",
+      "sha256": "3ec15039301641c7ff383e54a1a4d2757d71068baf63a702165fafb477db7ebe"
+    },
+    {
+      "path": "docs/exec-plans/completed/017-dasc-physics-documentation-task-5.md",
+      "tracked_before_review": true,
+      "disposition": "historical_record_preserved",
+      "sha256": "fcf0aef3b38c571b76f7d50a2fe72cb20259efb51c817badbc28449dbd99e07b"
+    },
+    {
+      "path": "docs/exec-plans/completed/018-dasc-physics-documentation-task-6.md",
+      "tracked_before_review": true,
+      "disposition": "historical_record_preserved",
+      "sha256": "91e363abb31fd6e84534e77a1bc5bf33c845796cbbdaa94e2878638e18756f49"
+    },
+    {
+      "path": "docs/exec-plans/completed/019-dasc-physics-documentation-task-7-review.md",
+      "tracked_before_review": true,
+      "disposition": "historical_record_preserved",
+      "sha256": "894390f14a01cb75a68eeed3867f25ce762cc255b5799f9a25cb73ff075054c9"
+    },
+    {
+      "path": "docs/exec-plans/completed/020-dependency-ci-refresh.md",
+      "tracked_before_review": true,
+      "disposition": "historical_record_preserved",
+      "sha256": "b1caf2eb4ec80c5f582c7917df3b6b51f71f91e019ac74ba32e99349e0eff445"
+    },
+    {
+      "path": "docs/exec-plans/completed/021-document-status-and-ci-review.md",
+      "tracked_before_review": false,
+      "disposition": "current_document_reconciled",
+      "sha256": "eaf15d9de8859769468c5864e612b1acf9d43fa0be95d706cde6be901f253896"
+    },
+    {
+      "path": "docs/generated-inventory.json",
+      "tracked_before_review": false,
+      "disposition": "generated_from_unchanged_reviewed_source_locks",
+      "sha256": "b263a61871c83e2ecf6e865b89924e503a2466a514a902eb2604169fbd1afe97"
+    },
+    {
+      "path": "docs/getting-started.md",
+      "tracked_before_review": true,
+      "disposition": "screened_for_status_and_link_consistency_no_edit_needed",
+      "sha256": "939ca545dc4e09cc939fa2c00bef0944df2d25edfd3308752c738a90115e9ead"
+    },
+    {
+      "path": "docs/index.md",
+      "tracked_before_review": true,
+      "disposition": "screened_for_status_and_link_consistency_no_edit_needed",
+      "sha256": "4191f4df105c85d649338c9bb70d783d4204a025c1b8e6eb24e76e3a351a84ac"
+    },
+    {
+      "path": "docs/javascripts/navigation.js",
+      "tracked_before_review": true,
+      "disposition": "screened_for_status_and_link_consistency_no_edit_needed",
+      "sha256": "062091c14fa6b83a8cb194f8e11d89a8cd7082f4f2420a32e58963b97c45c58f"
+    },
+    {
+      "path": "docs/operations/document-status.md",
+      "tracked_before_review": false,
+      "disposition": "current_document_reconciled",
+      "sha256": "f8690fe89ebae6893b6cc4d1e5784f90f8db5ee607c19a7c3698c3b10a4ca6f0"
+    },
+    {
+      "path": "docs/operations/github_app.md",
+      "tracked_before_review": true,
+      "disposition": "current_document_reconciled",
+      "sha256": "3778f43126cd31b1c56bb4606fbf247dd6ed12bb7d894bf874257a06cbfcb3da"
+    },
+    {
+      "path": "docs/operations/pages-deployment-checklist.md",
+      "tracked_before_review": true,
+      "disposition": "current_document_reconciled",
+      "sha256": "fcd3bce51789c163502e1580dd1b671ab3ba32d42f2d9a1287656246d7faa919"
+    },
+    {
+      "path": "docs/overrides/404.html",
+      "tracked_before_review": true,
+      "disposition": "screened_for_status_and_link_consistency_no_edit_needed",
+      "sha256": "fa78fc1c23aba6f4ac476002c5b2dcc0ab4c4bdb21e0baad1e9239fe7de03613"
+    },
+    {
+      "path": "docs/overrides/partials/content.html",
+      "tracked_before_review": true,
+      "disposition": "screened_for_status_and_link_consistency_no_edit_needed",
+      "sha256": "98f2c201376efcd0440e2aac6181c35b94403084e21039458521412e7bd57ebd"
+    },
+    {
+      "path": "docs/overrides/partials/footer.html",
+      "tracked_before_review": true,
+      "disposition": "screened_for_status_and_link_consistency_no_edit_needed",
+      "sha256": "a65b6f1cf323fca0a0f1809ae5b99f79e24f06f82e0884c3c7e36d5e8e00c471"
+    },
+    {
+      "path": "docs/overrides/partials/header.html",
+      "tracked_before_review": true,
+      "disposition": "screened_for_status_and_link_consistency_no_edit_needed",
+      "sha256": "031e515eff9544f2d06c3643a9dc5bbe3d490dc7f3c335b4e253eac88215325c"
+    },
+    {
+      "path": "docs/pydasc/guides/simulation-workflow.md",
+      "tracked_before_review": false,
+      "disposition": "generated_from_unchanged_reviewed_source_locks",
+      "sha256": "02f246a5690b6ec92765c9df0f03a7a52374013d571d74439570c8de4e27b7b9"
+    },
+    {
+      "path": "docs/pydasc/index.md",
+      "tracked_before_review": false,
+      "disposition": "generated_from_unchanged_reviewed_source_locks",
+      "sha256": "dfd936d85eeb93d9c8be85e7467dcaa3276d2845fc7aeed233af0fe3828149a4"
+    },
+    {
+      "path": "docs/pydasc/reference/conventions.md",
+      "tracked_before_review": false,
+      "disposition": "generated_from_unchanged_reviewed_source_locks",
+      "sha256": "17025be071b6f68a0bd38cc45dcc92e825d1ec5001ed9e0b570966131a31be84"
+    },
+    {
+      "path": "docs/pydasc/reference/public-api.md",
+      "tracked_before_review": false,
+      "disposition": "generated_from_unchanged_reviewed_source_locks",
+      "sha256": "0473ddc780791584fac558d592427baeac0a46c676017c38c02156d2f492acc2"
+    },
+    {
+      "path": "docs/stylesheets/readthedocs.css",
+      "tracked_before_review": true,
+      "disposition": "screened_for_status_and_link_consistency_no_edit_needed",
+      "sha256": "88c455082284925aa09ea716ac1296838ee63518607c9860a74a569a28818292"
+    },
+    {
+      "path": "tasks/TODO.md",
+      "tracked_before_review": true,
+      "disposition": "current_document_reconciled",
+      "sha256": "c663b375f0be209014d0677a9349672c8419eca0e94ed21719df7d47f0370425"
+    }
+  ]
+}

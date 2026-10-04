@@ -1,5 +1,7 @@
 # Eigenmode verification, convergence, and evidence
 
+This page describes the evidence available at the portal's reviewed source locks. New upstream code, manuscripts and campaigns require a separate reviewed result release before their numerical claims appear here.
+
 ## Verification hierarchy
 
 Treat analytic derivation, numerical verification, and physical validation as
@@ -51,7 +53,8 @@ full-wave agreement, DA derivatives, self-consistent tracking, or physical
 validation. Accordingly, this section reports plans and acceptance categories,
 not completed numerical results.
 
-Open issues include a complete aperture mode-matching implementation, resonant
-and lossy-wall treatment, finite-length and nonaxisymmetric sources, the exact
-self-consistent particle integrator, canonical coordinate conventions, and
-independent full-wave comparisons.
+Evidence not released by this portal includes application-level aperture
+qualification, resonant and lossy-wall studies, finite-source and nonaxisymmetric
+validation, self-consistent electromagnetic integration, and independent
+full-wave comparisons. This is a statement about the reviewed public evidence
+snapshot, not an inventory of missing features in the latest upstream code.

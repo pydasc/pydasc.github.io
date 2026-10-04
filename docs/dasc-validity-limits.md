@@ -41,12 +41,14 @@ boundaries, or source model are wrong.
 
 ## Intentionally unresolved
 
-!!! warning "Visible scientific decisions"
-    The shared DASC metric/frame transformation, TGF canonical normalization,
-    cavity self-consistent trajectory closure, finite-bunch generalization, and
-    the exact parameter set differentiated in each formulation remain subject
-    to scientific approval. Later pages must stop at these boundaries rather
-    than silently choose conventions.
+!!! warning "Boundaries of the reviewed documentation snapshot"
+    This public snapshot does not establish a common metric/frame convention,
+    TGF canonical normalization, self-consistent cavity trajectory closure,
+    finite-bunch qualification or a universally valid differentiated parameter
+    set. Current upstream implementations may go beyond this snapshot; their
+    presence alone does not release or qualify new public claims. State the
+    convention, source history, parameter set and validation range for each
+    formulation before extending these pages.
 
 ## Evidence labels
 

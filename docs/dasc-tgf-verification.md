@@ -1,5 +1,7 @@
 # TGF verification and convergence
 
+This page describes the evidence available at the portal's reviewed source locks. New upstream code, manuscripts and campaigns require a separate reviewed result release before their numerical claims appear here.
+
 ## Verification plan
 
 Verification must distinguish the continuous free-space model, its discrete

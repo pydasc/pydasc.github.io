@@ -1,5 +1,7 @@
 # GitHub App for private source access
 
+**Operational check, 4 October 2026:** the latest approved source-docs and Pages build jobs authenticated successfully; see [the run record](document-status.md). Credential values were not read. This verifies those executions, not every current environment, secret-scope or branch-protection setting. The setup and rotation procedure below remains applicable.
+
 Use one narrowly scoped GitHub App to let the public website repository read
 the two private source repositories named by `docs-manifest.yml`:
 

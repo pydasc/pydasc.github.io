@@ -1,12 +1,14 @@
 # GitHub Pages deployment administrator checklist
 
+**Observed status, 4 October 2026:** checks and Pages deployment passed at 95de4c6; [run links and artifact digest](document-status.md) are recorded. This checklist is also a template for future releases. Only directly evidenced items are checked; branch protection, credential scoping, signed-out inspection and human artifact-review decisions are not inferred from green CI.
+
 This checklist contains manual actions outside the repository. Do not perform
 them until the complete public artifact and the first deployment are explicitly
 authorized.
 
 ## Before the first deployment
 
-- [ ] Confirm the complete checks succeed on the proposed default-branch commit,
+- [x] Confirm the complete checks succeed on the reviewed 95de4c6 default-branch commit,
       including authenticated retrieval of both source locks.
 - [ ] Configure `docs-sources` with an exact `main` branch rule (no tags) and
       required reviewer approval by a trusted private-source maintainer.
@@ -41,7 +43,7 @@ authorized.
       `https://pydasc.github.io/`.
 - [ ] Check the home page, PyDASC and DASC navigation, search, styles, assets,
       provenance links, and a nonexistent route below the site root (`/`).
-- [ ] Record the workflow run, website commit, both source content commits, and
+- [x] Record the workflow run, website commit, both source content commits, and
       deployment URL in the release review.
 
 ## Rollback

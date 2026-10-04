@@ -1,5 +1,7 @@
 # Physics claim validation matrix
 
+This page describes the evidence available at the portal's reviewed source locks. New upstream code, manuscripts and campaigns require a separate reviewed result release before their numerical claims appear here.
+
 ## Status vocabulary
 
 - **Derived**: the reviewed DASC source supports the stated equation or mathematical formulation.
