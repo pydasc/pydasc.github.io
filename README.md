@@ -337,3 +337,14 @@ keys, and forbidden local paths with:
 ```bash
 python scripts/validate_physics_docs.py --docs docs
 ```
+
+
+### Updated CI dependency baseline (2026-10-04)
+
+All workflows use Python 3.13.16 and the refreshed, fully pinned
+`requirements-docs.txt`, including Material for MkDocs 9.7.7, PyYAML 6.0.3 and
+pytest 9.1.1. Each installation runs `python -m pip check` before validation.
+Recreate an old virtual environment if its interpreter path was removed by a
+Python upgrade. Use the same requirements for local tests and strict builds.
+Reviewed source commits, publication contracts and deployment permissions are
+unchanged by a dependency refresh.
