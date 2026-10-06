@@ -20,6 +20,11 @@ failing check.
 
 ## P1 — Complete release verification
 
+- [ ] Promote the CPU parallel/GPU documentation after the upstream publication
+  contracts approve the reviewed content. See the
+  [7 October release proposal](CPU_GPU_PUBLICATION_REVIEW.md) for exact source
+  revisions, proposed public files and the workflow-guide migration blocker.
+
 - [x] Run the complete exact-checkout acceptance sequence:
 
   ```bash
