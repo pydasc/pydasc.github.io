@@ -226,7 +226,11 @@ def test_mixed_unknown_keys_do_not_crash_error_reporting():
         collector._mapping({None: 1, 2: 1, "unknown": 1}, {"schema_version"}, "test")
 
 
-@pytest.mark.parametrize("text", [b'{"files":[],"files":[]}', b'{"file":{"source":1,"source":2}}', b'[' * 2000])
+@pytest.mark.parametrize("text", [
+    pytest.param(b'{"files":[],"files":[]}', id="duplicate-top-level-key"),
+    pytest.param(b'{"file":{"source":1,"source":2}}', id="duplicate-nested-key"),
+    pytest.param(b'[' * 2000, id="excessive-nesting"),
+])
 def test_invalid_json_is_controlled(text):
     with pytest.raises(collector.CollectionError):
         collector._read_json(text, "test manifest")
