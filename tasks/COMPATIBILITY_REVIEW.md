@@ -62,13 +62,11 @@ new validation and the per-table accessibility check.
 
 ## Refactor opportunities, in priority order
 
-1. **Make document validation readable in separate stages.**
-   `scripts/validate_docs.py:25` combines inventory schema, directory traversal,
-   provenance, checksums and Markdown links in one function, with several
-   single-line conditionals. Split it into named inventory, tree, provenance
-   and link checks without changing validation order, error behavior or safety
-   rules. First format the code independently; retain adversarial coverage and
-   compare the complete generated output before and after.
+1. **Make document validation readable in separate stages — completed.**
+   The validator now delegates to named inventory, tree, metadata provenance,
+   checksum, Markdown provenance and link checks. The
+   [follow-up verification](#document-validator-refactor) records the independent
+   formatting checkpoint, validation-order coverage and complete output comparison.
 2. **Extract shared test fixtures and group publication tests.**
    `tests/test_docs.py:17` contains compact Git/repository helpers that other
    test modules import from the test module itself. Move those helpers to a
@@ -89,8 +87,8 @@ new validation and the per-table accessibility check.
    Preserve symlink, file-identity, byte-limit and duplicate-key protections;
    keep this separate from behavioral changes to Markdown handling.
 
-These are follow-up recommendations, not completed refactors. The current
-changes fix the demonstrated gaps without restructuring the publication system.
+Items 2–4 remain follow-up recommendations. The completed validator refactor
+preserves the existing publication checks and does not change their policy.
 
 ## Verification
 
@@ -108,3 +106,33 @@ changes fix the demonstrated gaps without restructuring the publication system.
   tests and maintenance documentation; no generated output or upstream changes.
 
 No source promotion, commit, push, workflow dispatch or deployment was performed.
+
+## Document-validator refactor
+
+Follow-up to the first recommendation, starting from website commit `db2d0e1`.
+The work was performed in two separate local stages:
+
+1. Format the existing validator and expand its imports without extracting any
+   checks. The syntax tree matches the original after normalizing grouped
+   imports. Existing publication and input-safety tests pass at this checkpoint:
+   **236 passed, 9 filesystem-specific skips**.
+2. Extract `_load_inventory`, `_validate_tree`, `_validate_provenance`,
+   `_read_checked_document`, `_validate_markdown_provenance` and `_validate_links`.
+   The public `validate` function still reads the manifest first, checks the
+   inventory and entire output tree, then completes each file's provenance,
+   checksum, decoding, banner and links in inventory order. Inlining the helper
+   bodies produces an AST identical to the original validation function.
+
+Ten new regression cases pass against both the saved original and refactored
+validator. They assert the same exception type and exact message for competing
+inventory/tree, provenance/checksum, checksum/decoding and banner/link defects,
+including reversed inventory order and the controlled CLI error result.
+Existing adversarial tests remain intact.
+
+Final verification: **287 passed, 9 case-insensitive-filesystem skips**. The
+collector, document and physics validators, strict MkDocs build, site links,
+accessibility and artifact scan pass. Both generated namespaces, the complete
+inventory and **all 84 built-site files** are byte-identical to the baseline;
+directory inventories also match. Formatting and whitespace checks pass.
+The public CLI, error messages, safety rules, source locks, dependencies and
+publication allowlist are unchanged. No upstream code was executed or modified.

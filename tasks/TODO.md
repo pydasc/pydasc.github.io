@@ -66,9 +66,12 @@ failing check.
   schemes while preserving DASC attribution in generated release records.
 - [x] Replace regex-only raw HTML checks with multiline-aware element and
   attribute parsing, including style and alternate resource attributes.
-- [ ] Refactor the compact formatting in `scripts/validate_docs.py` and
-  `tests/test_docs.py` without changing behavior, then adopt a consistent lint
-  configuration if desired.
+- [x] Format `scripts/validate_docs.py` independently and split validation into
+  inventory, tree, provenance, checksum and link stages. Preserve error order
+  and compare the complete generated output before and after; see the
+  [validator follow-up](COMPATIBILITY_REVIEW.md#document-validator-refactor).
+- [ ] Refactor the compact formatting and shared fixtures in `tests/test_docs.py`
+  without changing behavior, then adopt a consistent lint configuration if desired.
 - [x] Refresh the pinned documentation dependency baseline and validate it
   with strict MkDocs 1.6.1 checks (record 020).
 - [ ] Evaluate MkDocs 2.0 compatibility before a future major upgrade.
