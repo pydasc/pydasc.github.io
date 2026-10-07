@@ -193,3 +193,16 @@ def test_reader_facing_physics_pages_do_not_reference_completed_tasks() -> None:
 
     for page in (ROOT / "docs").glob("dasc-*.md"):
         assert not task_reference.search(page.read_text()), page
+
+
+def test_missing_same_page_equation_is_rejected(tmp_path):
+    from validate_physics_docs import validate
+    (tmp_path / "dasc-example.md").write_text("# Example\n[Missing](#eq-missing)\n")
+    with pytest.raises(ValueError, match="undefined equation reference"):
+        validate(tmp_path)
+
+
+def test_equation_link_in_code_is_not_a_live_reference(tmp_path):
+    from validate_physics_docs import validate
+    (tmp_path / "dasc-example.md").write_text("# Example\n```text\n[Missing](#eq-missing)\n```\n")
+    validate(tmp_path)

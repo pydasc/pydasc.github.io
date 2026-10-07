@@ -274,3 +274,24 @@ def test_material_navigation_uses_text_bearing_label():
     assert 'id="section_title">Project' in rendered
     with pytest.raises(ValueError, match="template changed"):
         on_env(Environment(loader=DictLoader({"partials/nav-item.html":"changed theme"})))
+
+
+@pytest.mark.parametrize("reference", ["#missing", "other/#missing", "other/#%6dissing"])
+def test_document_index_rejects_missing_fragments(tmp_path, reference):
+    from html_references import DocumentIndex
+    (tmp_path / "index.html").write_text('<h1 id="home">Home</h1>')
+    (tmp_path / "other").mkdir()
+    (tmp_path / "other/index.html").write_text('<h1 id="target">Other</h1>')
+    with pytest.raises(ValueError, match="undefined local fragment"):
+        DocumentIndex(tmp_path).validate(tmp_path / "index.html", reference)
+
+
+def test_document_index_resolves_fragments_base_and_queries(tmp_path):
+    from html_references import DocumentIndex
+    page = tmp_path / "index.html"
+    page.write_text('<h1 id="target">Home</h1><a name="legacy"></a>')
+    index = DocumentIndex(tmp_path, "/preview/")
+    for raw in ["#target", "?q=value#target", "/preview/#%74arget", "#legacy", "#"]:
+        index.validate(page, raw)
+    with pytest.raises(ValueError, match="outside the configured site base"):
+        index.validate(page, "/elsewhere/#target")

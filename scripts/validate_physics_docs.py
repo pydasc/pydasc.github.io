@@ -7,7 +7,11 @@ import argparse
 import re
 import sys
 from pathlib import Path
-from urllib.parse import unquote
+from urllib.parse import unquote, urlsplit
+
+import markdown
+from collect_docs import MARKDOWN_POLICY_EXTENSIONS
+from html_references import References
 
 
 EQUATION_ID = re.compile(r'\bid="(eq-[a-z0-9-]+)"')
@@ -58,11 +62,17 @@ def validate(docs: Path) -> None:
                 f"missing={sorted(refs-defs)}, unused={sorted(defs-refs)}"
             )
     for page, text in texts.items():
-        for raw in ANCHOR_LINK.findall(text):
-            path_text, identifier = raw.rsplit("#", 1)
-            target = page if not path_text else (page.parent / unquote(path_text)).resolve()
+        rendered = References()
+        rendered.feed(markdown.markdown(text, extensions=MARKDOWN_POLICY_EXTENSIONS))
+        for raw in rendered.references:
+            parsed = urlsplit(raw)
+            if parsed.scheme or parsed.netloc or not parsed.fragment.startswith("eq-"):
+                continue
+            identifier = unquote(parsed.fragment)
+            target = page if not parsed.path else (page.parent / unquote(parsed.path)).resolve()
             if not target.is_relative_to(docs) or (target, identifier) not in equations:
                 raise ValueError(f"undefined equation reference in {page.name}: {raw}")
+
 
 
 def main() -> int:
