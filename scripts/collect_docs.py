@@ -26,6 +26,7 @@ import markdown
 import yaml
 
 from html_policy import unique_attributes
+from publication_transaction import publish, PublicationTransactionError
 
 EXPECTED = {
     "pydasc": "https://github.com/pydasc/pydasc",
@@ -1026,14 +1027,16 @@ def assemble(manifest: Path, output: Path, pydasc: Path, dasc: Path) -> list[dic
         _preflight_output(output, checkouts, manifest)
         if before != {name: _tree_state(repo) for name, repo in checkouts.items()}:
             raise CollectionError("source checkout changed during assembly")
-        for name in EXPECTED:
-            target = output / name
-            if target.exists():
-                shutil.rmtree(target)
-            target.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copytree(stage / name, target)
         inventory.sort(key=lambda item: item["destination"])
-        _write_inventory_atomic(output / "generated-inventory.json", inventory)
+        try:
+            publish(
+                output, stage, tuple(EXPECTED),
+                lambda: _write_inventory_atomic(output / "generated-inventory.json", inventory),
+                lambda: _preflight_output(output, checkouts, manifest),
+            )
+        except PublicationTransactionError as exc:
+            raise CollectionError(str(exc)) from exc
+
     after = {name: _tree_state(repo) for name, repo in checkouts.items()}
     if before != after:
         raise CollectionError("source checkout changed during assembly")

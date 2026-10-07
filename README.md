@@ -348,3 +348,24 @@ Recreate an old virtual environment if its interpreter path was removed by a
 Python upgrade. Use the same requirements for local tests and strict builds.
 Reviewed source commits, publication contracts and deployment permissions are
 unchanged by a dependency refresh.
+
+
+### Interrupted collection recovery
+
+Generated project directories and inventory are installed as one recoverable
+transaction. A sibling `.docs.collection-lock/` directory rejects overlapping
+writers; staging and backups reside on the output filesystem. Ordinary failed
+preparation, replacement or inventory writes restore the previous generation.
+This is a rollback protocol, not simultaneous multi-directory atomicity.
+
+After a hard process termination or failed rollback, keep the lock directory.
+Stop all collectors before inspecting its journal, `previous/` and `next/`.
+The only managed destinations are `pydasc/`, `dasc/` and
+`generated-inventory.json`; authored pages must remain untouched. Restore each
+available `previous/` entry to its matching destination, and remove newly
+installed managed entries that had no previous counterpart. A `committed`
+journal means the new generation completed; verify it before discarding backups.
+Do not infer success from the presence of an inventory alone. Remove the lock
+only after restoring/verifying one complete generation, then rerun the full
+release checks. Power-loss durability and hostile concurrent filesystem mutation
+are not guaranteed by this protocol; ambiguous recovery must fail closed.
