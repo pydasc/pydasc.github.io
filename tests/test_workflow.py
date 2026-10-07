@@ -190,3 +190,13 @@ def test_source_environment_guide_requires_server_side_protection() -> None:
                         "repository-level", "organization-level", "cannot retrieve"):
         assert requirement in guide
     assert "Use repository secrets rather than" not in guide
+
+
+def test_every_release_uses_shared_artifact_scanner():
+    for path in (WORKFLOW, DEPLOY_WORKFLOW, UPDATE_WORKFLOW):
+        workflow = yaml.load(path.read_text(), Loader=yaml.BaseLoader)
+        scans = [step for job in workflow["jobs"].values() for step in job["steps"]
+                 if step.get("name", "").startswith("Scan ")]
+        assert len(scans) == 1
+        assert scans[0]["run"] == "python scripts/validate_artifact.py --site site"
+        assert "grep -RIE" not in path.read_text()

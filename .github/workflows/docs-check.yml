@@ -210,13 +210,4 @@ jobs:
 
       - name: Scan complete site artifact
         shell: bash
-        run: |
-          set -euo pipefail
-          test -z "$(find site -type l -print -quit)"
-          test -z "$(find site -type f -size +5M -print -quit)"
-          if grep -RIE \
-            '(github_pat_|ghp_[[:alnum:]]{20,}|-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----|/(Users|home)/[^[:space:]<]+|https?://(localhost|127\.0\.0\.1|[^/[:space:]]+\.internal))' \
-            site; then
-            echo "Forbidden credential-like or private/local content in site artifact" >&2
-            exit 1
-          fi
+        run: python scripts/validate_artifact.py --site site

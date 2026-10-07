@@ -379,3 +379,13 @@ the write. Explicit manifest symlinks retain their link and update only the
 verified target. An interrupted `.manifest-name.update-lock/` must be inspected
 and removed only after confirming no updater is running; temporary files are not
 publication approvals.
+
+
+Scan the complete built artifact locally with
+`python scripts/validate_artifact.py --site site`. The same command runs before
+Pages upload and source-update proposals. It checks all regular artifact files,
+including binary assets, rejects symlinks/special files and files over 5 MiB,
+and applies the collector's credential/private-content policy to authored output
+too. Diagnostics identify the relative filename and category while redacting the
+matched payload. Imported Markdown retains its separate, stricter resource and
+publication-contract checks.
