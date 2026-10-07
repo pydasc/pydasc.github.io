@@ -1,13 +1,16 @@
+{% macro project_group(url) -%}
+  {{- "dasc" if url.startswith(("dasc-", "dasc/")) else "pydasc" if url.startswith("pydasc/") else "portal" -}}
+{%- endmacro %}
 {# Keep previous/next controls inside the current project section. #}
 {% set current_url = page.url or "" %}
-{% set current_group = "dasc" if current_url[:5] in ["dasc-", "dasc/"] else "pydasc" if current_url[:8] == "pydasc/" else "portal" %}
+{% set current_group = project_group(current_url) %}
 {% if page.previous_page %}
   {% set previous_url = page.previous_page.url or "" %}
-  {% set previous_group = "dasc" if previous_url[:5] in ["dasc-", "dasc/"] else "pydasc" if previous_url[:8] == "pydasc/" else "portal" %}
+  {% set previous_group = project_group(previous_url) %}
 {% endif %}
 {% if page.next_page %}
   {% set next_url = page.next_page.url or "" %}
-  {% set next_group = "dasc" if next_url[:5] in ["dasc-", "dasc/"] else "pydasc" if next_url[:8] == "pydasc/" else "portal" %}
+  {% set next_group = project_group(next_url) %}
 {% endif %}
 
 <footer class="md-footer">

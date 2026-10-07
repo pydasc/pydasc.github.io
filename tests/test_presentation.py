@@ -43,7 +43,7 @@ def test_readthedocs_stylesheet_and_local_assets_are_configured() -> None:
     assert "CODEX_TASKS_DASC_PHYSICS_DOCUMENTATION.md" in config["exclude_docs"].splitlines()
     assert "browser_control.md" in config["exclude_docs"].splitlines()
     footer = (ROOT / "docs/overrides/partials/footer.html").read_text(encoding="utf-8")
-    assert 'current_group = "dasc"' in footer
+    assert "project_group(current_url)" in footer
     assert "previous_group == current_group" in footer
     assert "next_group == current_group" in footer
 
@@ -186,3 +186,41 @@ def test_site_validation_resolves_root_relative_links_from_site_root(tmp_path: P
     )
 
     validate_site(tmp_path, CSS)
+
+
+@pytest.mark.parametrize(("url", "expected"), [
+    ("", "portal"), ("pydasc/", "pydasc"),
+    ("pydasc/reference/conventions/", "pydasc"), ("pydasc-other/", "portal"),
+    ("dasc/", "dasc"), ("dasc-tgf-method/", "dasc"),
+])
+def test_footer_project_group_boundaries(url, expected):
+    from jinja2 import Environment
+    source = (ROOT / "docs/overrides/partials/footer.html").read_text()
+    # Extract the actual macro; the rest of the template needs page/theme context.
+    macro = source[:source.index("{%- endmacro %}") + len("{%- endmacro %}")]
+    assert Environment().from_string(macro).module.project_group(url) == expected
+
+
+@pytest.mark.parametrize(("current", "neighbor", "visible"), [
+    ("pydasc/", "pydasc/reference/conventions/", True),
+    ("pydasc/reference/conventions/", "pydasc/", True),
+    ("pydasc/reference/conventions/", "contributing/", False),
+    ("dasc-tgf-method/", "dasc/", True),
+    ("dasc/", "pydasc/", False),
+])
+def test_footer_renders_only_same_project_neighbors(current, neighbor, visible):
+    from jinja2 import DictLoader, Environment
+    from types import SimpleNamespace
+    source = (ROOT / "docs/overrides/partials/footer.html").read_text()
+    env = Environment(loader=DictLoader({
+        "footer": source, ".icons/material/arrow-left.svg": "",
+        ".icons/material/arrow-right.svg": "", "partials/copyright.html": "",
+    }))
+    env.filters["url"] = lambda url: url
+    other = SimpleNamespace(url=neighbor, title="Neighbor")
+    html = env.get_template("footer").render(
+        page=SimpleNamespace(url=current, previous_page=other, next_page=other),
+        features=["navigation.footer"], lang=SimpleNamespace(t=lambda s:s),
+        config={"theme":{"icon":{}},"extra":{}},
+    )
+    assert (f'href="{neighbor}"' in html) is visible
