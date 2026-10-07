@@ -41,6 +41,7 @@ status intact.
 │   └── overrides/
 ├── scripts/collect_docs.py
 ├── scripts/validate_docs.py
+├── scripts/check_release.py
 ├── tests/
 ├── docs-manifest.yml
 ├── mkdocs.yml
@@ -57,6 +58,7 @@ Publication tests are grouped by concern:
 - `tests/test_output_boundary.py`: containment, filesystem identities,
   deterministic assembly and atomic inventory updates.
 - `tests/test_source_locks.py`: candidate approval and source-lock updates.
+- `tests/test_release_checks.py`: complete release gates and artifact safety.
 
 The shared helpers in `tests/publication_support.py` create real temporary Git
 repositories, committed publication contracts and byte snapshots. Test modules
@@ -209,19 +211,25 @@ original repositories unchanged. A current development checkout usually has a
 different HEAD or different document bytes and cannot substitute for a locked
 checkout.
 
-Collect and validate the approved documentation before building or serving:
+Run the same release checks used by CI before serving:
 
 ```bash
 python -m pytest
-python scripts/collect_docs.py --manifest docs-manifest.yml --output docs \
+python scripts/check_release.py \
   --pydasc .source-checkouts/pydasc --dasc .source-checkouts/dasc
-python scripts/validate_docs.py --manifest docs-manifest.yml --docs docs
-python scripts/validate_physics_docs.py --docs docs
-mkdocs build --strict
-python scripts/validate_site.py --site site --css docs/stylesheets/readthedocs.css
-python scripts/validate_accessibility.py --site site
 mkdocs serve
 ```
+
+`check_release.py` collects and validates documents and physics references,
+collects again and compares every generated file, directory and inventory byte,
+revalidates documents, builds with `mkdocs build --strict`, then checks site links,
+accessibility and the complete artifact. It stops at the first failing gate.
+The artifact scan rejects symlinks, special files, unreadable trees, files over
+5 MiB, credential-like content and private/local URLs or paths, including in
+binary files; errors identify the file without printing matching content.
+The command uses the repository's manifest and MkDocs configuration, writes
+`docs/` and `site/`, and accepts only already-fetched local source checkouts.
+Repository tests, source fetching and authentication remain separate steps.
 
 Open `http://127.0.0.1:8000/`. MkDocs does not fetch or collect the upstream
 documents itself. A clean checkout without collection has missing navigation
@@ -265,10 +273,11 @@ protected `docs-sources` environment. It checks out the website without
 persisting credentials, reads the exact source locks from `docs-manifest.yml`,
 fetches those commits over authenticated HTTPS using a short-lived, read-only
 GitHub App token into detached temporary worktrees, and
-never executes source-repository configuration or code. It runs the same tests,
-collector, validator, and strict MkDocs build used locally, repeats collection and
-compares the complete generated tree byte-for-byte, and scans the built `site/`
-artifact for symlinks, oversized files, credentials, and private or local paths.
+never executes source-repository configuration or code. After the unprivileged
+test job succeeds, it runs `scripts/check_release.py` with the local checkouts.
+All three release workflows use this same command for collection, deterministic
+comparison, validation, strict build and artifact scanning. Event conditions,
+environment approvals, tokens, permissions and publishing remain in workflows.
 Its dependency cache is keyed by `requirements-docs.txt`; it neither uploads nor
 deploys an artifact.
 

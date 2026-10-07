@@ -120,50 +120,13 @@ jobs:
               fetch --quiet --no-tags --depth=1 origin "$content_commit"
           done
 
-      - name: Run tests and validate source contracts
+      - name: Run repository tests
+        run: python -m pytest
+
+      - name: Check complete release
         run: |
-          python -m pytest
-          python scripts/collect_docs.py \
-            --manifest docs-manifest.yml --output docs \
+          python scripts/check_release.py \
             --pydasc .source-checkouts/pydasc --dasc .source-checkouts/dasc
-          python scripts/validate_docs.py --manifest docs-manifest.yml --docs docs
-          python scripts/validate_physics_docs.py --docs docs
-
-      - name: Verify deterministic assembly
-        shell: bash
-        run: |
-          set -euo pipefail
-          snapshot="$RUNNER_TEMP/assembled-docs"
-          mkdir -p "$snapshot"
-          cp -a docs/pydasc docs/dasc docs/generated-inventory.json "$snapshot/"
-          python scripts/collect_docs.py \
-            --manifest docs-manifest.yml --output docs \
-            --pydasc .source-checkouts/pydasc --dasc .source-checkouts/dasc
-          diff --recursive --no-dereference "$snapshot/pydasc" docs/pydasc
-          diff --recursive --no-dereference "$snapshot/dasc" docs/dasc
-          cmp "$snapshot/generated-inventory.json" docs/generated-inventory.json
-          python scripts/validate_docs.py --manifest docs-manifest.yml --docs docs
-
-      - name: Build strict site
-        run: mkdocs build --strict
-
-      - name: Validate site links and presentation assets
-        run: |
-          python scripts/validate_site.py --site site --css docs/stylesheets/readthedocs.css
-          python scripts/validate_accessibility.py --site site
-
-      - name: Scan complete site artifact
-        shell: bash
-        run: |
-          set -euo pipefail
-          test -z "$(find site -type l -print -quit)"
-          test -z "$(find site -type f -size +5M -print -quit)"
-          if grep -RIE \
-            '(github_pat_|ghp_[[:alnum:]]{20,}|-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----|/(Users|home)/[^[:space:]<]+|https?://(localhost|127\.0\.0\.1|[^/[:space:]]+\.internal))' \
-            site; then
-            echo "Forbidden credential-like or private/local content in site artifact" >&2
-            exit 1
-          fi
 
       - name: Configure Pages metadata
         uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0

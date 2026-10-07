@@ -73,13 +73,12 @@ new validation and the per-table accessibility check.
    source-lock and portal tests live with their existing related tests. See the
    [test-organization follow-up](#shared-publication-test-support) for retained
    coverage and independent collection checks.
-3. **Share the release-check implementation across CI workflows.**
-   `docs-check.yml`, `deploy-pages.yml` and `update-source-locks.yml` repeat
-   collection, deterministic comparison, validation and artifact scanning.
-   Extract repository-owned commands for these data-only checks so one pipeline
-   cannot miss a future gate. Keep event conditions, environment approvals,
-   token creation, workflow permissions and deployment in the workflows, and
-   retain tests proving pull-request jobs cannot access private-source secrets.
+3. **Share the release-check implementation across CI workflows — completed.**
+   All three workflows call `scripts/check_release.py` for collection,
+   deterministic comparison, validation, strict build and artifact scanning.
+   Event conditions, environment approvals, tokens, permissions and deployment
+   remain in the workflows. See the [follow-up verification](#shared-release-checks)
+   for real release fixtures and retained pull-request secret-isolation tests.
 4. **Define small shared publication-policy modules.**
    `validate_docs.py` and `update_source_locks.py` import private helpers from
    the collector. Once the validation stages are explicit, extract the bounded
@@ -87,8 +86,8 @@ new validation and the per-table accessibility check.
    Preserve symlink, file-identity, byte-limit and duplicate-key protections;
    keep this separate from behavioral changes to Markdown handling.
 
-Items 3–4 remain follow-up recommendations. The completed refactors preserve
-the existing publication checks and do not change their policy.
+Item 4 remains a follow-up recommendation. The completed refactors preserve
+the publication allowlist, source locks and approval requirements.
 
 ## Verification
 
@@ -173,3 +172,43 @@ artifact checks pass. Generated documents, inventory and all 84 built-site files
 are byte-identical to the baseline. Formatting, undefined/unused-import and
 whitespace checks pass. Production scripts, dependencies, source locks and
 publication policy are unchanged.
+
+## Shared release checks
+
+Follow-up completed on 7 October 2026 against baseline `cfbf132`.
+
+`scripts/check_release.py` now owns the data-only release sequence used by
+`docs-check.yml`, `deploy-pages.yml` and `update-source-locks.yml`: collect,
+validate documents and physics references, collect again, compare the complete
+generated tree and inventory, revalidate documents, build strictly, validate
+site links and accessibility, and scan the artifact. Directory fingerprints
+include empty directories. The updater now also revalidates after its second
+collection, matching the other release workflows.
+
+The artifact scanner retains the credential, private/local URL and path
+patterns and the 5 MiB limit. It additionally fails on special files and
+unreadable subtrees, scans binary bytes, and reports filenames without echoing
+matching content. Bounded regular-file reads reuse the existing collector
+protections. Site output cannot be a symlink or overlap an input checkout.
+No publication allowlist, source lock or approval requirement changed.
+
+The command accepts already-fetched local sources. Repository tests, event
+conditions, environment approvals, token creation, permissions, source fetching,
+PR creation, artifact upload and deployment remain in the workflows. A parsed
+comparison against the baseline confirms all workflow and job controls and
+retained steps are identical; all shell blocks pass `bash -n`. Workflow tests
+require the exact same mandatory command in all three pipelines, enforce its
+position before publishing, and retain PR/private-source secret isolation.
+
+New tests build a real MkDocs site from temporary Git repositories, preserve
+source bytes, and exercise failures in collection, deterministic comparison,
+physics references, strict builds, site links, accessibility and artifact scans.
+They include changed inventory bytes, empty directories, binary credentials,
+symlinks, FIFOs, oversized files and inaccessible trees.
+
+Verification: **318 passed, 9 skipped**; all skips still require a
+case-insensitive filesystem. The shared release command passes against the
+exact approved local checkouts. Generated documents, inventory and all **84
+built-site files**, including directory inventories, match the baseline.
+Formatting, undefined/unused-import and whitespace checks pass. Remote Actions
+have not been run for these uncommitted changes.

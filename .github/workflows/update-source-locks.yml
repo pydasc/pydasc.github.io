@@ -118,43 +118,15 @@ jobs:
             echo "changed=true" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Validate complete proposed release
+      - name: Run repository tests
         if: steps.changes.outputs.changed == 'true'
-        shell: bash
-        run: |
-          set -euo pipefail
-          python -m pytest
-          python scripts/collect_docs.py \
-            --manifest docs-manifest.yml --output docs \
-            --pydasc .source-checkouts/pydasc --dasc .source-checkouts/dasc
-          python scripts/validate_docs.py --manifest docs-manifest.yml --docs docs
-          python scripts/validate_physics_docs.py --docs docs
-          snapshot="$RUNNER_TEMP/assembled-docs"
-          mkdir -p "$snapshot"
-          cp -a docs/pydasc docs/dasc docs/generated-inventory.json "$snapshot/"
-          python scripts/collect_docs.py \
-            --manifest docs-manifest.yml --output docs \
-            --pydasc .source-checkouts/pydasc --dasc .source-checkouts/dasc
-          diff --recursive --no-dereference "$snapshot/pydasc" docs/pydasc
-          diff --recursive --no-dereference "$snapshot/dasc" docs/dasc
-          cmp "$snapshot/generated-inventory.json" docs/generated-inventory.json
-          mkdocs build --strict
-          python scripts/validate_site.py --site site --css docs/stylesheets/readthedocs.css
-          python scripts/validate_accessibility.py --site site
+        run: python -m pytest
 
-      - name: Scan proposed site artifact
+      - name: Check complete release
         if: steps.changes.outputs.changed == 'true'
-        shell: bash
         run: |
-          set -euo pipefail
-          test -z "$(find site -type l -print -quit)"
-          test -z "$(find site -type f -size +5M -print -quit)"
-          if grep -RIE \
-            '(github_pat_|ghp_[[:alnum:]]{20,}|-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----|/(Users|home)/[^[:space:]<]+|https?://(localhost|127\.0\.0\.1|[^/[:space:]]+\.internal))' \
-            site; then
-            echo "Forbidden credential-like or private/local content in site artifact" >&2
-            exit 1
-          fi
+          python scripts/check_release.py \
+            --pydasc .source-checkouts/pydasc --dasc .source-checkouts/dasc
 
       - name: Create source-lock pull request
         if: steps.changes.outputs.changed == 'true'

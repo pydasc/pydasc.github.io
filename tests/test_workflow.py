@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+import shlex
 from pathlib import Path
 
 import yaml
@@ -24,11 +25,19 @@ def test_docs_check_workflow_is_valid_and_least_privileged() -> None:
     assert "environment" not in public_job
     assert "secrets." not in yaml.safe_dump(public_job)
     assert "source-token" not in yaml.safe_dump(public_job)
+    assert ".source-checkouts" not in yaml.safe_dump(public_job)
+    assert "check_release.py" not in yaml.safe_dump(public_job)
+    assert "secrets." not in yaml.safe_dump(
+        {key: value for key, value in workflow.items() if key != "jobs"}
+    )
     assert "load_manifest" in yaml.safe_dump(public_job)
     source_job = workflow["jobs"]["source-docs"]
     assert source_job["needs"] == "docs"
     assert source_job["environment"] == "docs-sources"
-    assert source_job["if"] == "github.event_name == 'push' && github.ref == 'refs/heads/main'"
+    assert (
+        source_job["if"]
+        == "github.event_name == 'push' && github.ref == 'refs/heads/main'"
+    )
     assert "pull_request" in workflow["on"]
     assert "push" in workflow["on"]
     for event in ("pull_request", "push"):
@@ -39,7 +48,9 @@ def test_docs_check_workflow_is_valid_and_least_privileged() -> None:
 
 def test_docs_check_pins_actions_and_reproduces_local_build() -> None:
     text = WORKFLOW.read_text(encoding="utf-8")
-    uses_lines = [line for line in text.splitlines() if line.strip().startswith("uses:")]
+    uses_lines = [
+        line for line in text.splitlines() if line.strip().startswith("uses:")
+    ]
 
     assert uses_lines
     assert all(ACTION_PIN.match(line) for line in uses_lines)
@@ -53,17 +64,12 @@ def test_docs_check_pins_actions_and_reproduces_local_build() -> None:
         "steps.source-token.outputs.token",
         "http.https://github.com/.extraheader=AUTHORIZATION: basic $auth_header",
         'echo "::add-mask::$auth_header"',
-        "load_manifest(Path(\"docs-manifest.yml\"))",
+        'load_manifest(Path("docs-manifest.yml"))',
         "credential.helper=",
         "core.hooksPath=/dev/null",
         'fetch --quiet --no-tags --depth=1 origin "$content_commit"',
         "python -m pytest",
-        "scripts/collect_docs.py",
-        "scripts/validate_docs.py",
-        "diff --recursive --no-dereference",
-        "mkdocs build --strict",
-        "scripts/validate_accessibility.py",
-        "scripts/validate_physics_docs.py",
+        "scripts/check_release.py",
     ):
         assert command in text
 
@@ -95,16 +101,14 @@ def test_pages_workflow_has_exact_permissions_and_release_controls() -> None:
 
 def test_pages_artifact_is_validated_scanned_and_sha_pinned() -> None:
     text = DEPLOY_WORKFLOW.read_text(encoding="utf-8")
-    uses_lines = [line for line in text.splitlines() if line.strip().startswith("uses:")]
+    uses_lines = [
+        line for line in text.splitlines() if line.strip().startswith("uses:")
+    ]
 
     assert uses_lines and all(ACTION_PIN.match(line) for line in uses_lines)
     required_in_order = (
         "python -m pytest",
-        "scripts/collect_docs.py",
-        "scripts/validate_docs.py",
-        "diff --recursive --no-dereference",
-        "mkdocs build --strict",
-        "Scan complete site artifact",
+        "scripts/check_release.py",
         "actions/configure-pages@",
         "actions/upload-pages-artifact@",
     )
@@ -116,13 +120,16 @@ def test_pages_artifact_is_validated_scanned_and_sha_pinned() -> None:
     assert "secrets.DASC_DOCS_APP_PRIVATE_KEY" in text
     assert "permission-contents: read" in text
     assert "steps.source-token.outputs.token" in text
-    assert "http.https://github.com/.extraheader=AUTHORIZATION: basic $auth_header" in text
+    assert (
+        "http.https://github.com/.extraheader=AUTHORIZATION: basic $auth_header" in text
+    )
     assert 'echo "::add-mask::$auth_header"' in text
     assert 'fetch --quiet --no-tags --depth=1 origin "$content_commit"' in text
-    assert "scripts/validate_accessibility.py" in text
-    assert "scripts/validate_physics_docs.py" in text
     assert "enablement: false" in text
-    assert re.search(r"actions/upload-pages-artifact@[0-9a-f]{40}[^\n]*\n\s+with:\n\s+path: site(?:\n|$)", text)
+    assert re.search(
+        r"actions/upload-pages-artifact@[0-9a-f]{40}[^\n]*\n\s+with:\n\s+path: site(?:\n|$)",
+        text,
+    )
     assert "gh-pages" not in text
     assert "personal access token" not in text.casefold()
 
@@ -133,7 +140,9 @@ def test_pages_artifact_is_validated_scanned_and_sha_pinned() -> None:
 def test_source_update_workflow_proposes_validated_review_only_prs() -> None:
     text = UPDATE_WORKFLOW.read_text(encoding="utf-8")
     workflow = yaml.load(text, Loader=yaml.BaseLoader)
-    uses_lines = [line for line in text.splitlines() if line.strip().startswith("uses:")]
+    uses_lines = [
+        line for line in text.splitlines() if line.strip().startswith("uses:")
+    ]
 
     assert set(workflow["on"]) == {"schedule", "workflow_dispatch"}
     assert workflow["permissions"] == {"contents": "write", "pull-requests": "write"}
@@ -148,16 +157,16 @@ def test_source_update_workflow_proposes_validated_review_only_prs() -> None:
     assert "secrets.DASC_DOCS_APP_PRIVATE_KEY" in text
     assert "steps.source-token.outputs.token" in text
     assert "permission-contents: read" in text
-    assert "http.https://github.com/.extraheader=AUTHORIZATION: basic $auth_header" in text
+    assert (
+        "http.https://github.com/.extraheader=AUTHORIZATION: basic $auth_header" in text
+    )
     assert 'echo "::add-mask::$auth_header"' in text
     assert "scripts/update_source_locks.py" in text
     assert "--skip-unapproved" in text
     assert "credential.helper=" in text
     assert 'fetch --quiet --no-tags --depth=1 origin "$content_commit"' in text
     assert "python -m pytest" in text
-    assert "mkdocs build --strict" in text
-    assert "scripts/validate_accessibility.py" in text
-    assert "scripts/validate_physics_docs.py" in text
+    assert "scripts/check_release.py" in text
     assert "gh pr create" in text
     assert "git push" in text
     assert "merge" not in text.casefold().replace("merging", "")
@@ -173,8 +182,11 @@ def test_every_app_credential_consumer_uses_the_source_environment() -> None:
             consumers.add((path.name, job_id))
             assert job["environment"] == "docs-sources"
             assert "github.ref == 'refs/heads/main'" in job["if"]
-            tokens = [step for step in job["steps"]
-                      if step.get("uses", "").startswith("actions/create-github-app-token@")]
+            tokens = [
+                step
+                for step in job["steps"]
+                if step.get("uses", "").startswith("actions/create-github-app-token@")
+            ]
             assert len(tokens) == 1
             assert tokens[0]["with"]["permission-contents"] == "read"
     assert consumers == {
@@ -184,9 +196,62 @@ def test_every_app_credential_consumer_uses_the_source_environment() -> None:
     }
 
 
+def test_release_jobs_share_the_same_mandatory_command() -> None:
+    expected_command = [
+        "python",
+        "scripts/check_release.py",
+        "--pydasc",
+        ".source-checkouts/pydasc",
+        "--dasc",
+        ".source-checkouts/dasc",
+    ]
+    for path, job_id in (
+        (WORKFLOW, "source-docs"),
+        (DEPLOY_WORKFLOW, "build"),
+        (UPDATE_WORKFLOW, "propose"),
+    ):
+        workflow = yaml.load(path.read_text(), Loader=yaml.BaseLoader)
+        job = workflow["jobs"][job_id]
+        steps = job["steps"]
+        checks = [
+            step for step in steps if "scripts/check_release.py" in step.get("run", "")
+        ]
+        assert len(checks) == 1
+        check = checks[0]
+        assert shlex.split(check["run"].replace("\\\n", " ")) == expected_command
+        assert "continue-on-error" not in job
+        assert "continue-on-error" not in check
+        assert "env" not in check
+        if path == UPDATE_WORKFLOW:
+            assert check["if"] == "steps.changes.outputs.changed == 'true'"
+            publish = next(
+                step for step in steps if "gh pr create" in step.get("run", "")
+            )
+            assert publish["if"] == check["if"]
+            assert steps.index(check) < steps.index(publish)
+        else:
+            assert "if" not in check
+        if path == WORKFLOW:
+            assert job["needs"] == "docs"
+        else:
+            tests = next(
+                step for step in steps if step.get("run") == "python -m pytest"
+            )
+            assert steps.index(tests) < steps.index(check)
+            assert "continue-on-error" not in tests
+            assert tests.get("if") == check.get("if")
+
+
 def test_source_environment_guide_requires_server_side_protection() -> None:
     guide = (ROOT / "docs/operations/github_app.md").read_text()
-    for requirement in ("docs-sources", "Required reviewers", "main", "branch",
-                        "repository-level", "organization-level", "cannot retrieve"):
+    for requirement in (
+        "docs-sources",
+        "Required reviewers",
+        "main",
+        "branch",
+        "repository-level",
+        "organization-level",
+        "cannot retrieve",
+    ):
         assert requirement in guide
     assert "Use repository secrets rather than" not in guide

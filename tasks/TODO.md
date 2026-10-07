@@ -29,14 +29,8 @@ failing check.
 
   ```bash
   python -m pytest
-  python scripts/collect_docs.py --manifest docs-manifest.yml --output docs \
+  python scripts/check_release.py \
     --pydasc .source-checkouts/pydasc --dasc .source-checkouts/dasc
-  python scripts/validate_docs.py --manifest docs-manifest.yml --docs docs
-  python scripts/validate_physics_docs.py --docs docs
-  mkdocs build --strict
-  python scripts/validate_site.py --site site \
-    --css docs/stylesheets/readthedocs.css
-  python scripts/validate_accessibility.py --site site
   git diff --check
   ```
 
@@ -74,6 +68,9 @@ failing check.
   contract, Markdown-link and output-boundary modules. Preserve real Git and
   filesystem tests and the complete collected case inventory; see the
   [test-organization follow-up](COMPATIBILITY_REVIEW.md#shared-publication-test-support).
+- [x] Share the complete release-check command across all three workflows,
+  retaining workflow permissions, approvals and private-source isolation.
+  See the [release-check follow-up](COMPATIBILITY_REVIEW.md#shared-release-checks).
 - [x] Refresh the pinned documentation dependency baseline and validate it
   with strict MkDocs 1.6.1 checks (record 020).
 - [ ] Evaluate MkDocs 2.0 compatibility before a future major upgrade.
