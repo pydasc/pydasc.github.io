@@ -166,30 +166,51 @@ python scripts/validate_site.py --site site \
 
 ## Local preview
 
-Python 3.11 or newer and Git are recommended.
+Use Git and the CI Python baseline listed below with the pinned dependencies.
 
 ```bash
 python -m venv .venv
 source .venv/bin/activate
 python -m pip install --requirement requirements-docs.txt
-mkdocs serve
+python -m pip check
 ```
 
-Open `http://127.0.0.1:8000/`. This builds the hand-written scaffold only and does not fetch either source repository. For its strict check, run:
+Prepare isolated checkouts at the website's exact locks before collection. The
+following example copies two existing local repositories; replace the two input
+paths with your clones. Run it from the website root with unused destinations:
 
 ```bash
-mkdocs build --strict
+git clone --no-hardlinks --no-checkout /path/to/pydasc .source-checkouts/pydasc
+git clone --no-hardlinks --no-checkout /path/to/dasc .source-checkouts/dasc
+for name in pydasc dasc; do
+  commit=$(python -c 'import sys, yaml; print(yaml.safe_load(open("docs-manifest.yml"))["sources"][sys.argv[1]]["checkout_commit"])' "$name")
+  git -C ".source-checkouts/$name" -c core.hooksPath=/dev/null checkout --detach "$commit"
+done
 ```
 
-After the deterministic source-assembly task is reviewed, the complete local sequence is:
+These local repositories must contain both the locked checkout commits and the
+content commits named by their publication contracts. The commands leave the
+original repositories unchanged. A current development checkout usually has a
+different HEAD or different document bytes and cannot substitute for a locked
+checkout.
+
+Collect and validate the approved documentation before building or serving:
 
 ```bash
 python -m pytest
 python scripts/collect_docs.py --manifest docs-manifest.yml --output docs \
-  --pydasc /path/to/pydasc --dasc /path/to/dasc
+  --pydasc .source-checkouts/pydasc --dasc .source-checkouts/dasc
 python scripts/validate_docs.py --manifest docs-manifest.yml --docs docs
+python scripts/validate_physics_docs.py --docs docs
 mkdocs build --strict
+python scripts/validate_site.py --site site --css docs/stylesheets/readthedocs.css
+python scripts/validate_accessibility.py --site site
+mkdocs serve
 ```
+
+Open `http://127.0.0.1:8000/`. MkDocs does not fetch or collect the upstream
+documents itself. A clean checkout without collection has missing navigation
+targets and fails the strict build.
 
 The two source paths must be local checkouts whose `HEAD` commits exactly match `docs-manifest.yml`. Assembly validates each checkout's `docs/publication-manifest.json`, reads approved Git objects and regular files only, never installs or executes source code, and writes a checksummed `docs/generated-inventory.json` excluded from the public site.
 
@@ -258,6 +279,13 @@ strict build, link and accessibility checks, and the complete artifact scan.
 Only then does the workflow create a branch and pull request. It never edits an
 upstream repository, changes the file allowlist, merges, or deploys.
 
+The source-lock updater also assembles the complete candidate in a temporary
+directory before writing the manifest. Matching contract metadata alone is
+insufficient: changed or missing approved files, unsafe paths and broken links
+must reject the update without changing the existing locks. `--skip-unapproved`
+only skips an unapproved DASC publication decision; other content failures
+remain errors.
+
 Store App credentials only in `docs-sources`, restricted to the exact `main`
 branch (no tags) and required approval by trusted private-source maintainers.
 Remove repository-level and accessible organization-level copies; workflow
@@ -325,7 +353,7 @@ python scripts/validate_accessibility.py --site site
 
 This gate checks document language and title, main and named navigation
 landmarks, one level-one heading, unskipped heading order, image alternative-text
-attributes, table headers, and unique element IDs. It complements—but does not
+attributes, headers in each table, and unique element IDs. It complements—but does not
 replace—manual keyboard, zoom, contrast, screen-reader, mobile, and print review.
 
 DASC physics equations use native MathML inside locally owned accessible groups,

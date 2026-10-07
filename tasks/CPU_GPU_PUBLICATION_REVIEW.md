@@ -4,6 +4,10 @@ Reviewed 7 October 2026. **Pending upstream publication approval.** This is an
 internal release proposal outside `docs/`; it is not a published capability or
 scientific-result record.
 
+The [follow-up compatibility review](COMPATIBILITY_REVIEW.md) checks newer
+upstream revisions and records website-side fixes. Both publication contracts
+remain unchanged, so the promotion described here is still pending.
+
 ## Reviewed inputs
 
 | Project | Observed committed revision | Relevant changes |

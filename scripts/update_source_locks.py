@@ -16,6 +16,7 @@ from collect_docs import (
     SHA_RE,
     UnapprovedPublicationError,
     _read_regular_file,
+    assemble,
     load_manifest,
 )
 
@@ -68,7 +69,12 @@ def update(manifest: Path, checkouts: dict[str, Path]) -> dict[str, tuple[str, s
     with tempfile.TemporaryDirectory(prefix="dasc-lock-update-") as temporary:
         candidate_path = Path(temporary) / "docs-manifest.yml"
         candidate_path.write_text(candidate, encoding="utf-8")
-        load_manifest(candidate_path, checkouts)
+        assemble(
+            candidate_path,
+            Path(temporary) / "docs",
+            checkouts["pydasc"],
+            checkouts["dasc"],
+        )
     if changes:
         manifest.write_text(candidate, encoding="utf-8")
     return changes

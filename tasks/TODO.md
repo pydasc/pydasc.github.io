@@ -53,6 +53,11 @@ failing check.
 
 ## P2 — Strengthen maintainability
 
+- [x] Check updated upstream compatibility, reject uncollectable source-lock
+  candidates before manifest writes, and check headers in each table. See the
+  [compatibility review](COMPATIBILITY_REVIEW.md) for evidence and prioritized
+  refactor opportunities.
+
 - [x] Add explicit tests rejecting duplicate source and destination entries in upstream
   publication contracts, not only duplicate website destinations.
 - [x] Validate publication-decision evidence, DASC attribution, inventory

@@ -17,11 +17,10 @@ class PageAudit(HTMLParser):
         self.headings: list[int] = []
         self.h1_count = 0
         self.images_without_alt = 0
-        self.tables = 0
-        self.table_headers = 0
+        self.table_has_headers: list[bool] = []
+        self.open_tables: list[int] = []
         self.tables_without_scroll_region = 0
         self.invalid_scroll_regions = 0
-        self.in_table = 0
         self.scroll_region_depth = 0
         self.div_scroll_stack: list[bool] = []
         self.has_main = False
@@ -59,20 +58,20 @@ class PageAudit(HTMLParser):
         elif tag == "img" and "alt" not in values:
             self.images_without_alt += 1
         elif tag == "table":
-            self.tables += 1
-            self.in_table += 1
+            self.open_tables.append(len(self.table_has_headers))
+            self.table_has_headers.append(False)
             if not self.scroll_region_depth:
                 self.tables_without_scroll_region += 1
-        elif tag == "th" and self.in_table:
-            self.table_headers += 1
+        elif tag == "th" and self.open_tables:
+            self.table_has_headers[self.open_tables[-1]] = True
         elif len(tag) == 2 and tag[0] == "h" and tag[1].isdigit():
             level = int(tag[1])
             self.headings.append(level)
             self.h1_count += level == 1
 
     def handle_endtag(self, tag: str) -> None:
-        if tag == "table":
-            self.in_table -= 1
+        if tag == "table" and self.open_tables:
+            self.open_tables.pop()
         elif tag == "div" and self.div_scroll_stack:
             if self.div_scroll_stack.pop():
                 self.scroll_region_depth -= 1
@@ -100,8 +99,9 @@ def validate(site: Path) -> None:
             failures.append("heading level is skipped")
         if audit.images_without_alt:
             failures.append(f"{audit.images_without_alt} image(s) lack alt attributes")
-        if audit.tables and not audit.table_headers:
-            failures.append("table markup has no header cells")
+        tables_without_headers = audit.table_has_headers.count(False)
+        if tables_without_headers:
+            failures.append(f"{tables_without_headers} table(s) have no header cells")
         if audit.tables_without_scroll_region:
             failures.append(
                 f"{audit.tables_without_scroll_region} table(s) lack keyboard-scrollable regions"
