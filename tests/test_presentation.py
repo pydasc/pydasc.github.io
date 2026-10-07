@@ -224,3 +224,53 @@ def test_footer_renders_only_same_project_neighbors(current, neighbor, visible):
         config={"theme":{"icon":{}},"extra":{}},
     )
     assert (f'href="{neighbor}"' in html) is visible
+
+
+@pytest.mark.parametrize("content", [
+    '<nav aria-label="Main"></nav><nav></nav>',
+    '<nav aria-labelledby="missing"></nav>',
+    '<span id="name"> </span><nav aria-labelledby="name"></nav>',
+    '<nav aria-label=" "></nav>',
+    '<nav aria-label="Main" ARIA-LABEL="Other"></nav>',
+    '<nav aria-label="Main"></nav><div class="dasc-table-scroll" role="region" tabindex="0" aria-label="Tables"><table><tr><th>A</th></tr></table><table><tr><td>B</td></tr></table></div>',
+    '<nav aria-label="Main"></nav><div class="dasc-table-scroll" role="region" tabindex="0" aria-label="Tables"><table><tr><td><table><tr><th>Nested</th></tr></table></td></tr></table></div>',
+])
+def test_accessibility_checks_each_element(tmp_path, content):
+    (tmp_path / "index.html").write_text(
+        '<html lang="en"><head><title>Page</title></head><body>'
+        '<main><h1>Page</h1>' + content + '</main></body></html>'
+    )
+    with pytest.raises(ValueError):
+        validate_accessibility(tmp_path)
+
+
+def test_accessibility_resolves_forward_labels_and_nested_text(tmp_path):
+    (tmp_path / "index.html").write_text(
+        '<html lang="en"><title>Page</title><body><main><h1>Page</h1>'
+        '<nav aria-labelledby="label"></nav><nav aria-label="Other"></nav>'
+        '<span id="label">Named <b>navigation</b></span></main></body></html>'
+    )
+    validate_accessibility(tmp_path)
+
+
+def test_accessibility_rejects_empty_title(tmp_path):
+    (tmp_path / "index.html").write_text(
+        '<html lang="en"><title> </title><main><h1>Page</h1>'
+        '<nav aria-label="Main"></nav></main></html>'
+    )
+    with pytest.raises(ValueError, match="empty title"):
+        validate_accessibility(tmp_path)
+
+
+def test_material_navigation_uses_text_bearing_label():
+    from jinja2 import DictLoader, Environment
+    from mkdocs_hooks import on_env
+    source = '<nav aria-labelledby="{{ path }}_label"><label class="md-nav__title" for="{{ path }}">Project</label></nav>'
+    env = Environment(loader=DictLoader({"partials/nav-item.html":source}))
+    on_env(env)
+    on_env(env)
+    rendered = env.get_template("partials/nav-item.html").render(path="section")
+    assert 'aria-labelledby="section_title"' in rendered
+    assert 'id="section_title">Project' in rendered
+    with pytest.raises(ValueError, match="template changed"):
+        on_env(Environment(loader=DictLoader({"partials/nav-item.html":"changed theme"})))
