@@ -67,12 +67,12 @@ new validation and the per-table accessibility check.
    checksum, Markdown provenance and link checks. The
    [follow-up verification](#document-validator-refactor) records the independent
    formatting checkpoint, validation-order coverage and complete output comparison.
-2. **Extract shared test fixtures and group publication tests.**
-   `tests/test_docs.py:17` contains compact Git/repository helpers that other
-   test modules import from the test module itself. Move those helpers to a
-   dedicated test-support module and split contract, link and output-boundary
-   tests by concern. Keep temporary Git repositories and real filesystem tests;
-   avoid replacing them with mocks that bypass the behavior under test.
+2. **Extract shared test fixtures and group publication tests — completed.**
+   `tests/publication_support.py` now owns the shared helpers. Publication
+   contracts, Markdown links and output boundaries have separate test modules;
+   source-lock and portal tests live with their existing related tests. See the
+   [test-organization follow-up](#shared-publication-test-support) for retained
+   coverage and independent collection checks.
 3. **Share the release-check implementation across CI workflows.**
    `docs-check.yml`, `deploy-pages.yml` and `update-source-locks.yml` repeat
    collection, deterministic comparison, validation and artifact scanning.
@@ -87,8 +87,8 @@ new validation and the per-table accessibility check.
    Preserve symlink, file-identity, byte-limit and duplicate-key protections;
    keep this separate from behavioral changes to Markdown handling.
 
-Items 2–4 remain follow-up recommendations. The completed validator refactor
-preserves the existing publication checks and does not change their policy.
+Items 3–4 remain follow-up recommendations. The completed refactors preserve
+the existing publication checks and do not change their policy.
 
 ## Verification
 
@@ -136,3 +136,40 @@ inventory and **all 84 built-site files** are byte-identical to the baseline;
 directory inventories also match. Formatting and whitespace checks pass.
 The public CLI, error messages, safety rules, source locks, dependencies and
 publication allowlist are unchanged. No upstream code was executed or modified.
+
+## Shared publication test support
+
+Follow-up to the second recommendation, starting from website commit `f3a8235`.
+The four shared `git`, `repo`, `fixture` and `hashes` helpers now live in
+`tests/publication_support.py`, formatted as ordinary multiline functions with
+purpose docstrings. They still create temporary repositories, make actual Git
+commits, write publication contracts and hash real files.
+
+The former `tests/test_docs.py` is split by concern:
+
+| Module | Collected cases | Scope |
+| --- | --- | --- |
+| `test_publication_contracts.py` | 51 | Approval, identity, source integrity, manifests and inventory metadata |
+| `test_markdown_links.py` | 90 | Links, images, Markdown rendering and HTML policy |
+| `test_output_boundary.py` | 41 | Determinism, containment, symlinks, file identities and atomic inventory writes |
+
+Its three source-lock tests moved into `test_source_locks.py` and its portal
+navigation test into `test_presentation.py`. Other helper consumers import
+`publication_support` explicitly. `tests` is now a package, and `conftest.py`
+centralizes the script import path; test modules no longer depend on another
+test module being imported first. The README documents the organization.
+
+Verification preserves all **296 collected cases and parameter IDs**, with only
+their module paths changing. All **142 test/helper function ASTs** match the
+baseline after normalizing equivalent import aliases and helper docstrings;
+assertions, parameter decorators and existing fault-injection tests are intact.
+No filesystem/Git behavior was replaced by mocks. All nine test modules collect
+independently in fresh processes using pytest's importlib mode.
+
+The full suite passes **287 tests**, with the same **9 case-insensitive-filesystem
+skips**, now in `test_output_boundary.py`. Collection, repeated deterministic
+assembly, document/physics validation, strict build, links, accessibility and
+artifact checks pass. Generated documents, inventory and all 84 built-site files
+are byte-identical to the baseline. Formatting, undefined/unused-import and
+whitespace checks pass. Production scripts, dependencies, source locks and
+publication policy are unchanged.

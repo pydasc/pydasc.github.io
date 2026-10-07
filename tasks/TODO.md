@@ -70,8 +70,10 @@ failing check.
   inventory, tree, provenance, checksum and link stages. Preserve error order
   and compare the complete generated output before and after; see the
   [validator follow-up](COMPATIBILITY_REVIEW.md#document-validator-refactor).
-- [ ] Refactor the compact formatting and shared fixtures in `tests/test_docs.py`
-  without changing behavior, then adopt a consistent lint configuration if desired.
+- [x] Extract shared publication helpers and split `tests/test_docs.py` into
+  contract, Markdown-link and output-boundary modules. Preserve real Git and
+  filesystem tests and the complete collected case inventory; see the
+  [test-organization follow-up](COMPATIBILITY_REVIEW.md#shared-publication-test-support).
 - [x] Refresh the pinned documentation dependency baseline and validate it
   with strict MkDocs 1.6.1 checks (record 020).
 - [ ] Evaluate MkDocs 2.0 compatibility before a future major upgrade.

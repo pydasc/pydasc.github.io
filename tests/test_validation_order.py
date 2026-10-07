@@ -6,7 +6,7 @@ import sys
 
 import pytest
 
-from test_docs import fixture
+from .publication_support import fixture
 from collect_docs import CollectionError, assemble
 from validate_docs import main, validate
 

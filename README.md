@@ -49,6 +49,21 @@ status intact.
 └── README.md
 ```
 
+Publication tests are grouped by concern:
+
+- `tests/test_publication_contracts.py`: approvals, source integrity, manifest
+  and inventory metadata.
+- `tests/test_markdown_links.py`: relative links, images and rendered HTML policy.
+- `tests/test_output_boundary.py`: containment, filesystem identities,
+  deterministic assembly and atomic inventory updates.
+- `tests/test_source_locks.py`: candidate approval and source-lock updates.
+
+The shared helpers in `tests/publication_support.py` create real temporary Git
+repositories, committed publication contracts and byte snapshots. Test modules
+import those helpers directly instead of importing another test module.
+`tests/conftest.py` makes repository scripts importable for all tests, including
+when running an individual module with `python -m pytest tests/<module>.py`.
+
 ## Publication manifest
 
 Only entries in `docs-manifest.yml` may cross the public-site boundary. Production

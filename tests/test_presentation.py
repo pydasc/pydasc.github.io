@@ -6,8 +6,6 @@ from pathlib import Path
 import pytest
 import yaml
 
-import sys
-sys.path.insert(0, str(Path(__file__).parents[1] / "scripts"))
 from validate_accessibility import validate as validate_accessibility
 from validate_site import validate as validate_site
 from mkdocs_hooks import on_page_content
@@ -219,3 +217,15 @@ def test_site_validation_resolves_root_relative_links_from_site_root(tmp_path: P
     )
 
     validate_site(tmp_path, CSS)
+
+
+def test_portal_enters_dasc_through_project_first_overview():
+    root = Path(__file__).parents[1]
+    assert (
+        "[Open the DASC documentation](dasc-project-overview.md)"
+        in (root / "docs/index.md").read_text()
+    )
+    assert (
+        "[DASC project overview](dasc-project-overview.md)"
+        in (root / "docs/getting-started.md").read_text()
+    )

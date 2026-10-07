@@ -1,16 +1,15 @@
 from __future__ import annotations
 
 import re
-import sys
 from pathlib import Path
 
 import markdown
 import pytest
 
-ROOT = Path(__file__).parents[1]
-sys.path.insert(0, str(ROOT / "scripts"))
-
 from validate_physics_docs import MISPLACED_MEASURE_EXPONENT, validate
+
+
+ROOT = Path(__file__).parents[1]
 
 
 def test_authored_physics_docs_have_valid_equations_and_citations() -> None:
