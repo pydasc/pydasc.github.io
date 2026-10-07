@@ -20,7 +20,11 @@ from collect_docs import (
     _split_link,
     load_manifest,
 )
-from publication_io import check_inventory_path, read_json, read_regular_file
+from publication_io import (
+    check_inventory_path,
+    read_json,
+    read_regular_file,
+)
 from publication_policy import (
     DOCUMENTATION_STATUSES,
     EXPECTED,
