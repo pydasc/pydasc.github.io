@@ -42,6 +42,8 @@ status intact.
 ├── scripts/collect_docs.py
 ├── scripts/validate_docs.py
 ├── scripts/check_release.py
+├── scripts/publication_io.py
+├── scripts/publication_policy.py
 ├── tests/
 ├── docs-manifest.yml
 ├── mkdocs.yml
@@ -65,6 +67,22 @@ repositories, committed publication contracts and byte snapshots. Test modules
 import those helpers directly instead of importing another test module.
 `tests/conftest.py` makes repository scripts importable for all tests, including
 when running an individual module with `python -m pytest tests/<module>.py`.
+
+Shared publication APIs live below the command-line scripts:
+
+- `scripts/publication_policy.py` defines publication identities, metadata rules,
+  the immutable `Entry` selection/provenance type, the `InventoryRecord` type
+  annotation, and controlled publication errors. Types do not replace validation.
+- `scripts/publication_io.py` exposes bounded `read_regular_file`, duplicate-key
+  rejecting `read_json` and `read_manifest_yaml`, inventory-path checks and path
+  containment checks. JSON parsing accepts bytes obtained through the bounded
+  reader. Only the website YAML reader resolves an explicit input symlink.
+  `open_regular_file` guards file type and identity but leaves size enforcement to
+  the caller, allowing streamed integrity hashes of large unpublished files.
+
+Collection, document validation, source-lock updates and release checks use
+these APIs directly. Git-backed manifest approval and assembly stay in
+`collect_docs.py`; Markdown parsing, rewriting and HTML policy are unchanged.
 
 ## Publication manifest
 

@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 
 import collect_docs
+import publication_io
 from collect_docs import CollectionError, assemble
 from validate_docs import validate
 
@@ -153,11 +154,11 @@ def test_filesystem_containment_walks_existing_alias_ancestors(tmp_path):
     root.mkdir()
     alias = tmp_path / "alias"
     alias.symlink_to(root, target_is_directory=True)
-    assert collect_docs._filesystem_inside(alias, root)
-    assert collect_docs._filesystem_inside(alias / "missing" / "nested", root)
-    assert collect_docs._filesystem_inside(root / "missing" / "nested", alias)
-    assert not collect_docs._filesystem_inside(tmp_path / "elsewhere", root)
-    assert not collect_docs._filesystem_inside(root, tmp_path / "missing")
+    assert publication_io.filesystem_inside(alias, root)
+    assert publication_io.filesystem_inside(alias / "missing" / "nested", root)
+    assert publication_io.filesystem_inside(root / "missing" / "nested", alias)
+    assert not publication_io.filesystem_inside(tmp_path / "elsewhere", root)
+    assert not publication_io.filesystem_inside(root, tmp_path / "missing")
 
 
 def test_filesystem_containment_does_not_fold_distinct_names(tmp_path):
@@ -167,8 +168,8 @@ def test_filesystem_containment_does_not_fold_distinct_names(tmp_path):
     if other.exists():
         pytest.skip("requires a case-sensitive filesystem")
     other.mkdir()
-    assert not collect_docs._filesystem_inside(other / "missing", root)
-    assert not collect_docs._filesystem_inside(root, other)
+    assert not publication_io.filesystem_inside(other / "missing", root)
+    assert not publication_io.filesystem_inside(root, other)
 
 
 def test_output_identity_inspection_errors_fail_closed(tmp_path, monkeypatch):
@@ -379,7 +380,7 @@ def test_validation_rejects_inventory_replaced_after_path_check(
     inventory = output / "generated-inventory.json"
     external = tmp_path / "external.json"
     external.write_bytes(inventory.read_bytes())
-    original = validate_docs._check_inventory_path
+    original = validate_docs.check_inventory_path
 
     def change_entry(path, **kwargs):
         original(path, **kwargs)
@@ -389,7 +390,7 @@ def test_validation_rejects_inventory_replaced_after_path_check(
         else:
             os.mkfifo(inventory)
 
-    monkeypatch.setattr(validate_docs, "_check_inventory_path", change_entry)
+    monkeypatch.setattr(validate_docs, "check_inventory_path", change_entry)
     with pytest.raises(CollectionError, match="invalid inventory|unsafe inventory"):
         validate(manifest, output)
 

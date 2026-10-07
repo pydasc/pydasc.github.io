@@ -8,7 +8,8 @@ import pytest
 import yaml
 
 import check_release as release
-from collect_docs import CollectionError, MAX_FILE_BYTES
+from publication_io import MAX_FILE_BYTES
+from publication_policy import CollectionError
 from .publication_support import fixture, hashes
 
 

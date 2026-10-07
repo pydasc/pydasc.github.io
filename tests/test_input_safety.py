@@ -14,6 +14,7 @@ import yaml
 
 from .publication_support import fixture, git, hashes
 import collect_docs as collector
+import publication_io
 import validate_docs as validator
 
 
@@ -44,9 +45,9 @@ def test_regular_reader_rejects_special_entries_before_open(tmp_path, monkeypatc
     # Use relative names to stay below the platform's Unix socket path limit.
     monkeypatch.chdir(tmp_path)
     special_entry(Path("input"), kind)
-    monkeypatch.setattr(collector.os, "open", lambda *a, **k: pytest.fail("opened a special file"))
+    monkeypatch.setattr(publication_io.os, "open", lambda *a, **k: pytest.fail("opened a special file"))
     with pytest.raises(collector.CollectionError, match="regular file"):
-        collector._read_regular_file(path, "test input")
+        publication_io.read_regular_file(path, "test input")
 
 
 @pytest.mark.parametrize("kind", ["fifo", "symlink", "regular"])
@@ -71,17 +72,75 @@ def test_regular_reader_rejects_swaps_between_check_and_open(tmp_path, monkeypat
             os.mkfifo(path)
         return original_open(filename, flags, *args, **kwargs)
 
-    monkeypatch.setattr(collector.os, "open", swapped_open)
+    monkeypatch.setattr(publication_io.os, "open", swapped_open)
     with pytest.raises(collector.CollectionError, match="test input"):
-        collector._read_regular_file(path, "test input")
+        publication_io.read_regular_file(path, "test input")
 
 
 def test_regular_reader_limits_size(tmp_path, monkeypatch):
     path = tmp_path / "input"
     path.write_bytes(b"12345")
-    monkeypatch.setattr(collector, "MAX_FILE_BYTES", 4)
+    monkeypatch.setattr(publication_io, "MAX_FILE_BYTES", 4)
     with pytest.raises(collector.CollectionError, match="oversized"):
-        collector._read_regular_file(path, "test input")
+        publication_io.read_regular_file(path, "test input")
+
+
+def test_regular_reader_accepts_exact_byte_limit(tmp_path, monkeypatch):
+    path = tmp_path / "input"
+    path.write_bytes(b"1234")
+    monkeypatch.setattr(publication_io, "MAX_FILE_BYTES", 4)
+    assert publication_io.read_regular_file(path, "test input") == b"1234"
+
+
+def test_regular_reader_rejects_growth_after_size_check(tmp_path, monkeypatch):
+    path = tmp_path / "input"
+    path.write_bytes(b"1234")
+    monkeypatch.setattr(publication_io, "MAX_FILE_BYTES", 4)
+    original_fstat = os.fstat
+    calls = 0
+
+    def grow_after_stat(descriptor):
+        nonlocal calls
+        calls += 1
+        result = original_fstat(descriptor)
+        # The first stat checks the opened inode; the second checks its size.
+        if calls == 2:
+            with path.open("ab") as stream:
+                stream.write(b"5")
+        return result
+
+    monkeypatch.setattr(publication_io.os, "fstat", grow_after_stat)
+    with pytest.raises(collector.CollectionError, match="oversized test input"):
+        publication_io.read_regular_file(path, "test input")
+    assert calls == 2
+
+
+def test_regular_reader_rechecks_directory_entry_after_open(tmp_path, monkeypatch):
+    path = tmp_path / "input"
+    path.write_bytes(b"original")
+    replacement = tmp_path / "replacement"
+    replacement.write_bytes(b"replacement")
+    original_fstat = os.fstat
+
+    def swap_after_open(descriptor):
+        result = original_fstat(descriptor)
+        path.rename(tmp_path / "previous")
+        replacement.rename(path)
+        return result
+
+    monkeypatch.setattr(publication_io.os, "fstat", swap_after_open)
+    with pytest.raises(collector.CollectionError, match="file changed while opening"):
+        publication_io.read_regular_file(path, "test input")
+
+
+def test_only_website_manifest_reader_resolves_explicit_symlink(tmp_path):
+    path = tmp_path / "manifest.yml"
+    path.write_text("schema_version: 2\n")
+    alias = tmp_path / "alias.yml"
+    alias.symlink_to(path)
+    assert publication_io.read_manifest_yaml(alias) == {"schema_version": 2}
+    with pytest.raises(collector.CollectionError, match="expected a regular file"):
+        publication_io.read_regular_file(alias, "publication input")
 
 
 def test_source_integrity_hashes_unusual_names_and_large_unpublished_files(tmp_path, monkeypatch):
@@ -89,7 +148,7 @@ def test_source_integrity_hashes_unusual_names_and_large_unpublished_files(tmp_p
     files = ["space name.txt", 'quote"name.txt', "line\nbreak.txt", "한글.txt"]
     for name in files:
         (pydasc / name).write_bytes(b"unpublished bytes")
-    monkeypatch.setattr(collector, "MAX_FILE_BYTES", 1)
+    monkeypatch.setattr(publication_io, "MAX_FILE_BYTES", 1)
     before = collector._tree_state(pydasc)
     assert set(files) <= {name for name, digest in before[1]}
     # Changing a same-length untracked file leaves porcelain status unchanged;
@@ -233,7 +292,7 @@ def test_mixed_unknown_keys_do_not_crash_error_reporting():
 ])
 def test_invalid_json_is_controlled(text):
     with pytest.raises(collector.CollectionError):
-        collector._read_json(text, "test manifest")
+        publication_io.read_json(text, "test manifest")
 
 
 @pytest.mark.parametrize("value", [None, [], {}, True, 1.0, ""])

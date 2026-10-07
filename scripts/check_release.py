@@ -13,13 +13,9 @@ import sys
 from pathlib import Path
 from typing import Iterator
 
-from collect_docs import (
-    EXPECTED,
-    CollectionError,
-    _filesystem_inside,
-    _read_regular_file,
-    assemble,
-)
+from collect_docs import assemble
+from publication_io import filesystem_inside, read_regular_file
+from publication_policy import EXPECTED, CollectionError
 from validate_accessibility import validate as validate_accessibility
 from validate_docs import validate as validate_docs
 from validate_physics_docs import validate as validate_physics
@@ -59,7 +55,7 @@ def snapshot_generated(docs: Path) -> dict[str, str | None]:
     inventory = docs / "generated-inventory.json"
     snapshot: dict[str, str | None] = {
         inventory.name: hashlib.sha256(
-            _read_regular_file(inventory, "inventory")
+            read_regular_file(inventory, "inventory")
         ).hexdigest()
     }
     for namespace in EXPECTED:
@@ -68,7 +64,7 @@ def snapshot_generated(docs: Path) -> dict[str, str | None]:
                 None
                 if is_directory
                 else hashlib.sha256(
-                    _read_regular_file(path, "generated document")
+                    read_regular_file(path, "generated document")
                 ).hexdigest()
             )
     return snapshot
@@ -78,7 +74,7 @@ def scan_artifact(site: Path) -> None:
     """Reject unsafe files and forbidden content without printing matched bytes."""
     for path, is_directory in _tree_entries(site):
         if not is_directory:
-            data = _read_regular_file(path, "site artifact")
+            data = read_regular_file(path, "site artifact")
             if FORBIDDEN_ARTIFACT.search(data):
                 raise CollectionError(
                     f"forbidden credential-like or private/local content: "
@@ -93,7 +89,7 @@ def check_release(root: Path, pydasc: Path, dasc: Path) -> None:
     if site.is_symlink():
         raise CollectionError(f"unsafe site output directory: {site}")
     for source in (pydasc, dasc):
-        if _filesystem_inside(site, source) or _filesystem_inside(source, site):
+        if filesystem_inside(site, source) or filesystem_inside(source, site):
             raise CollectionError("site output overlaps a source checkout")
 
     print("Collect and validate approved documents", flush=True)

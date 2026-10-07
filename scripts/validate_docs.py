@@ -10,35 +10,36 @@ import stat
 import sys
 from html import unescape
 from pathlib import Path, PurePosixPath
-from typing import Any
+from typing import cast
 from urllib.parse import quote
 
 from collect_docs import (
+    FORBIDDEN,
+    _decode_link_path,
+    _markdown_link_matches,
+    _split_link,
+    load_manifest,
+)
+from publication_io import check_inventory_path, read_json, read_regular_file
+from publication_policy import (
     DOCUMENTATION_STATUSES,
     EXPECTED,
-    FORBIDDEN,
     SHA_RE,
     SPDX_RE,
     UNSAFE_ATTRIBUTION_RE,
     CollectionError,
     Entry,
-    _check_inventory_path,
-    _decode_link_path,
-    _markdown_link_matches,
-    _read_json,
-    _read_regular_file,
-    _split_link,
-    load_manifest,
+    InventoryRecord,
 )
 
 
 def _load_inventory(
     docs: Path, selected: dict[str, Entry]
-) -> dict[str, dict[str, Any]]:
+) -> dict[str, InventoryRecord]:
     """Read the bounded inventory and match its destinations to the manifest."""
     inventory_path = docs / "generated-inventory.json"
-    _check_inventory_path(inventory_path, required=True)
-    inventory = _read_json(_read_regular_file(inventory_path, "inventory"), "inventory")
+    check_inventory_path(inventory_path, required=True)
+    inventory = read_json(read_regular_file(inventory_path, "inventory"), "inventory")
     if (
         not isinstance(inventory, dict)
         or set(inventory) != {"schema_version", "files"}
@@ -57,14 +58,14 @@ def _load_inventory(
         "license",
         "attribution",
     }
-    expected = {}
+    expected: dict[str, InventoryRecord] = {}
     for index, item in enumerate(inventory["files"]):
         if not isinstance(item, dict) or set(item) != required_item_keys:
             raise CollectionError(f"invalid inventory item at index {index}")
         destination = item["destination"]
         if not isinstance(destination, str):
             raise CollectionError(f"invalid inventory destination at index {index}")
-        expected[destination] = item
+        expected[destination] = cast(InventoryRecord, item)
     if len(expected) != len(inventory["files"]):
         raise CollectionError("duplicate inventory destination")
     if set(expected) != set(selected):
@@ -75,7 +76,7 @@ def _load_inventory(
     return expected
 
 
-def _validate_tree(docs: Path, expected: dict[str, dict[str, Any]]) -> None:
+def _validate_tree(docs: Path, expected: dict[str, InventoryRecord]) -> None:
     """Inspect every generated entry before reading any document content."""
     actual: set[str] = set()
     for namespace in EXPECTED:
@@ -107,7 +108,9 @@ def _validate_tree(docs: Path, expected: dict[str, dict[str, Any]]) -> None:
         )
 
 
-def _validate_provenance(relative: str, item: dict[str, Any], selection: Entry) -> None:
+def _validate_provenance(
+    relative: str, item: InventoryRecord, selection: Entry
+) -> None:
     """Check manifest identity and inventory metadata for one document."""
     if (
         item["repository"] != selection.repository
@@ -131,16 +134,16 @@ def _validate_provenance(relative: str, item: dict[str, Any], selection: Entry) 
         raise CollectionError(f"missing inventory attribution: {relative}")
 
 
-def _read_checked_document(path: Path, relative: str, item: dict[str, Any]) -> bytes:
+def _read_checked_document(path: Path, relative: str, item: InventoryRecord) -> bytes:
     """Read through the regular-file guard and verify the content checksum."""
-    data = _read_regular_file(path, "generated document")
+    data = read_regular_file(path, "generated document")
     if hashlib.sha256(data).hexdigest() != item["sha256"]:
         raise CollectionError(f"checksum mismatch: {relative}")
     return data
 
 
 def _validate_markdown_provenance(
-    text: str, relative: str, item: dict[str, Any]
+    text: str, relative: str, item: InventoryRecord
 ) -> None:
     """Reject forbidden content or a missing/mismatched generated banner."""
     encoded_source = quote(item["source"], safe="/")

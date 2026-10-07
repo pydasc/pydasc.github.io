@@ -10,14 +10,13 @@ import sys
 import tempfile
 from pathlib import Path
 
-from collect_docs import (
+from collect_docs import assemble, load_manifest
+from publication_io import read_regular_file
+from publication_policy import (
     CollectionError,
     EXPECTED,
     SHA_RE,
     UnapprovedPublicationError,
-    _read_regular_file,
-    assemble,
-    load_manifest,
 )
 
 
@@ -48,7 +47,7 @@ def _replace_lock(text: str, source: str, commit: str) -> str:
 def update(manifest: Path, checkouts: dict[str, Path]) -> dict[str, tuple[str, str]]:
     # Validate the current file fully before deriving any candidate document.
     load_manifest(manifest)
-    original = _read_regular_file(manifest.resolve(), "website manifest").decode("utf-8")
+    original = read_regular_file(manifest.resolve(), "website manifest").decode("utf-8")
     candidate = original
     changes: dict[str, tuple[str, str]] = {}
     for name in EXPECTED:

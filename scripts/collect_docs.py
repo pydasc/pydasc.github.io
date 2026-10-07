@@ -9,28 +9,42 @@ import json
 import os
 import re
 import shutil
-import stat
 import subprocess
 import sys
 import tempfile
 from collections import Counter
-from contextlib import contextmanager
 from dataclasses import dataclass
 from html import unescape
 from html.parser import HTMLParser
 from pathlib import Path, PurePosixPath
-from typing import Any, BinaryIO, Iterator
+from typing import Any
 from urllib.parse import SplitResult, quote, unquote_to_bytes, urlsplit
 
 import markdown
-import yaml
 
 from html_policy import unique_attributes
+from publication_io import (
+    MAX_FILE_BYTES,
+    check_inventory_path,
+    filesystem_inside,
+    open_regular_file,
+    path_inside,
+    read_json,
+    read_manifest_yaml,
+    read_regular_file,
+)
+from publication_policy import (
+    DOCUMENTATION_STATUSES,
+    EXPECTED,
+    SHA_RE,
+    SPDX_RE,
+    UNSAFE_ATTRIBUTION_RE,
+    CollectionError,
+    Entry,
+    InventoryRecord,
+    UnapprovedPublicationError,
+)
 
-EXPECTED = {
-    "pydasc": "https://github.com/pydasc/pydasc",
-    "dasc": "https://github.com/pydasc/dasc",
-}
 # Repository transfers preserve history, but the source repositories currently
 # publish contracts bearing their former URLs. Accept only these exact aliases;
 # the website manifest and fetch workflows still require the canonical org URLs.
@@ -40,13 +54,6 @@ LEGACY_CONTRACT_REPOSITORIES = {
 }
 ALLOWED = {".md", ".png", ".jpg", ".jpeg", ".webp"}
 MEDIA = {".md": "text/markdown", ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".webp": "image/webp"}
-MAX_FILE_BYTES = 5 * 1024 * 1024
-SHA_RE = re.compile(r"^[0-9a-f]{40}$")
-SPDX_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9.+-]*$")
-DOCUMENTATION_STATUSES = {
-    "Draft", "Reviewed", "Reference", "Validated", "Unvalidated",
-    "Superseded", "Released",
-}
 MARKDOWN_AUTOLINK_RE = re.compile(
     r"<(?:https?://[^<>\s]+|[^<>\s@]+@[^<>\s@]+)>"
 )
@@ -63,7 +70,6 @@ UNSAFE_HTML_ATTRIBUTES = {
     "formaction", "href", "longdesc", "manifest", "ping", "poster", "profile",
     "src", "srcset", "style", "usemap", "xlink:href",
 }
-UNSAFE_ATTRIBUTION_RE = re.compile(r"(?:[\x00-\x1f<>\[\]]|--)")
 FORBIDDEN = re.compile(r"(?:-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----|github_pat_[A-Za-z0-9_]+|ghp_[A-Za-z0-9]+|AKIA[0-9A-Z]{16}|/(?:Users|home)/[^\s)`]+|https?://(?:localhost|127\.0\.0\.1|[^/\s]+\.internal)(?:[/\s)]|$))")
 MARKDOWN_POLICY_EXTENSIONS = [
     "admonition",
@@ -76,14 +82,6 @@ MARKDOWN_POLICY_EXTENSIONS = [
     "pymdownx.superfences",
     "toc",
 ]
-
-
-class CollectionError(ValueError):
-    pass
-
-
-class UnapprovedPublicationError(CollectionError):
-    """A structurally valid source contract is not approved for publication."""
 
 
 class MarkdownHTMLGuard(HTMLParser):
@@ -220,19 +218,6 @@ def _validate_markdown_html(text: str, source: PurePosixPath) -> None:
 
 
 @dataclass(frozen=True)
-class Entry:
-    source_name: str
-    repository: str
-    checkout_commit: str
-    content_commit: str
-    source: PurePosixPath
-    destination: PurePosixPath
-    status: str
-    license_id: str
-    attribution: str
-
-
-@dataclass(frozen=True)
 class MarkdownLink:
     label: str
     destination: str
@@ -260,88 +245,6 @@ def _path(value: object, context: str) -> PurePosixPath:
     if not result.parts or result.is_absolute() or any(part in {"", ".", ".."} for part in result.parts) or any(c in value for c in "*?["):
         raise CollectionError(f"unsafe {context}: {value!r}")
     return result
-
-
-@contextmanager
-def _open_regular_file(path: Path, context: str) -> Iterator[BinaryIO]:
-    """Open a regular file without following a swapped symlink or FIFO.
-
-    Check the directory entry before opening, then compare the opened file's
-    identity with both the original and current entries before reading bytes.
-    O_NONBLOCK prevents a replacement FIFO from blocking in open().
-    """
-    try:
-        initial = path.lstat()
-        if not stat.S_ISREG(initial.st_mode):
-            raise CollectionError(f"unsafe {context}: expected a regular file: {path}")
-        flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0)
-        with os.fdopen(os.open(path, flags), "rb") as stream:
-            opened = os.fstat(stream.fileno())
-            current = path.lstat()
-            identity = (opened.st_dev, opened.st_ino)
-            if (
-                not stat.S_ISREG(opened.st_mode)
-                or not stat.S_ISREG(current.st_mode)
-                or identity != (initial.st_dev, initial.st_ino)
-                or identity != (current.st_dev, current.st_ino)
-            ):
-                raise CollectionError(f"unsafe {context}: file changed while opening: {path}")
-            yield stream
-    except (OSError, ValueError) as exc:
-        if isinstance(exc, CollectionError):
-            raise
-        raise CollectionError(f"cannot read {context}: {path}") from exc
-
-
-def _read_regular_file(path: Path, context: str) -> bytes:
-    """Read publication input bytes with a strict size limit."""
-    with _open_regular_file(path, context) as stream:
-        if os.fstat(stream.fileno()).st_size > MAX_FILE_BYTES:
-            raise CollectionError(f"oversized {context}: {path}")
-        data = stream.read(MAX_FILE_BYTES + 1)
-        if len(data) > MAX_FILE_BYTES:
-            raise CollectionError(f"oversized {context}: {path}")
-        return data
-
-
-class _ManifestLoader(yaml.SafeLoader):
-    """Reject duplicate keys rather than silently changing a publication decision."""
-
-    def construct_mapping(self, node, deep=False):
-        self.flatten_mapping(node)
-        result = {}
-        for key_node, value_node in node.value:
-            key = self.construct_object(key_node, deep=deep)
-            if not isinstance(key, str) or key in result:
-                raise CollectionError("manifest keys must be unique strings")
-            result[key] = self.construct_object(value_node, deep=deep)
-        return result
-
-
-def _json_object(pairs):
-    result = {}
-    for key, value in pairs:
-        if key in result:
-            raise CollectionError(f"duplicate JSON key: {key!r}")
-        result[key] = value
-    return result
-
-
-def _read_json(data: bytes, context: str) -> Any:
-    try:
-        return json.loads(data, object_pairs_hook=_json_object)
-    except (ValueError, UnicodeError, RecursionError) as exc:
-        raise CollectionError(f"invalid {context}: {exc}") from exc
-
-
-def _read_yaml(path: Path) -> dict[str, Any]:
-    try:
-        # Website manifests may be explicitly addressed through a symlink;
-        # source contracts and generated files must not be symlinks.
-        data = _read_regular_file(path.resolve(), "website manifest")
-        return yaml.load(data.decode("utf-8"), Loader=_ManifestLoader)
-    except (OSError, UnicodeError, yaml.YAMLError, RecursionError, RuntimeError) as exc:
-        raise CollectionError(f"cannot read website manifest: {exc}") from exc
 
 
 def _git(repo: Path, *args: str, binary: bool = False) -> str | bytes:
@@ -650,14 +553,6 @@ def _git_object_kind(
     return None
 
 
-def _inside(path: Path, root: Path) -> bool:
-    try:
-        path.relative_to(root)
-        return True
-    except ValueError:
-        return False
-
-
 def _source_contract(
     path: Path,
     name: str,
@@ -666,8 +561,8 @@ def _source_contract(
     raw_contract: bytes | None = None,
 ) -> tuple[str, dict[str, dict[str, Any]]]:
     context = f"{name} publication manifest"
-    raw = _read_json(
-        raw_contract if raw_contract is not None else _read_regular_file(path, context),
+    raw = read_json(
+        raw_contract if raw_contract is not None else read_regular_file(path, context),
         context,
     )
     root_keys = {"schema_version", "project", "repository", "source_commit", "files"}
@@ -739,7 +634,7 @@ def _source_contract(
 
 
 def load_manifest(path: Path, checkouts: dict[str, Path] | None = None) -> list[Entry]:
-    root = _mapping(_read_yaml(path), {"schema_version", "sources"}, "website manifest")
+    root = _mapping(read_manifest_yaml(path), {"schema_version", "sources"}, "website manifest")
     if type(root["schema_version"]) is not int or root["schema_version"] != 2 or not isinstance(root["sources"], dict) or set(root["sources"]) != set(EXPECTED):
         raise CollectionError("website manifest must be schema 2 with exactly pydasc and dasc")
     entries: list[Entry] = []
@@ -757,9 +652,9 @@ def load_manifest(path: Path, checkouts: dict[str, Path] | None = None) -> list[
         if checkouts is not None:
             checkout = checkouts[name].resolve()
             contract = checkout.joinpath(*manifest_rel.parts)
-            if contract.is_symlink() or not _inside(contract.resolve(), checkout):
+            if contract.is_symlink() or not path_inside(contract.resolve(), checkout):
                 raise CollectionError(f"unsafe {name} publication manifest")
-            working_contract = _read_regular_file(contract, f"{name} publication manifest")
+            working_contract = read_regular_file(contract, f"{name} publication manifest")
             if _git(checkout, "rev-parse", "HEAD").strip() != checkout_commit:
                 raise CollectionError(f"{name} checkout commit mismatch")
             committed_contract = _git(
@@ -872,46 +767,9 @@ def _tree_state(repo: Path) -> tuple[str, tuple[tuple[str, str], ...]]:
         if path.is_file() and not path.is_symlink():
             # Unpublished upstream files can exceed the publication size limit;
             # hash them in bounded chunks, using the same safe opening policy.
-            with _open_regular_file(path, "source integrity input") as stream:
+            with open_regular_file(path, "source integrity input") as stream:
                 files.append((raw, hashlib.file_digest(stream, "sha256").hexdigest()))
     return status, tuple(files)
-
-
-def _check_inventory_path(path: Path, *, required: bool = False) -> None:
-    """Inspect the directory entry itself, including dangling symlinks."""
-    try:
-        mode = path.lstat().st_mode
-    except FileNotFoundError:
-        if required:
-            raise CollectionError(f"missing inventory: {path}")
-        return
-    if not stat.S_ISREG(mode):
-        raise CollectionError(f"unsafe inventory path (expected a regular file): {path}")
-
-
-def _filesystem_inside(path: Path, root: Path) -> bool:
-    """Include filesystem aliases without assuming case-insensitive names.
-
-    resolve() removes symlinks but preserves spelling on case-insensitive
-    filesystems. Compare identities of existing ancestors as well, so even a
-    not-yet-created destination beneath an alias of root is contained.
-    Inspection errors other than missing paths must propagate to the caller.
-    """
-    if _inside(path, root):
-        return True
-    try:
-        root_stat = root.stat()
-    except FileNotFoundError:
-        return False
-    identity = (root_stat.st_dev, root_stat.st_ino)
-    for ancestor in (path, *path.parents):
-        try:
-            ancestor_stat = ancestor.stat()
-        except FileNotFoundError:
-            continue
-        if (ancestor_stat.st_dev, ancestor_stat.st_ino) == identity:
-            return True
-    return False
 
 
 def _preflight_output(output: Path, checkouts: dict[str, Path], manifest: Path) -> Path:
@@ -923,7 +781,7 @@ def _preflight_output(output: Path, checkouts: dict[str, Path], manifest: Path) 
         if output.exists() and not output.is_dir():
             raise CollectionError(f"unsafe output directory: {output}")
         for name, checkout in checkouts.items():
-            if _filesystem_inside(output, checkout) or _filesystem_inside(checkout, output):
+            if filesystem_inside(output, checkout) or filesystem_inside(checkout, output):
                 raise CollectionError(f"output overlaps {name} source checkout: {output}")
         # Protect both the directory entry used as input and its resolved target.
         manifest_paths = {manifest.parent.resolve() / manifest.name, manifest.resolve()}
@@ -931,20 +789,20 @@ def _preflight_output(output: Path, checkouts: dict[str, Path], manifest: Path) 
             target = output / name
             if target.is_symlink() or (target.exists() and not target.is_dir()):
                 raise CollectionError(f"unsafe generated namespace: {target}")
-            if any(_filesystem_inside(path, target) for path in manifest_paths):
+            if any(filesystem_inside(path, target) for path in manifest_paths):
                 raise CollectionError(f"output would replace the input manifest: {manifest}")
         inventory = output / "generated-inventory.json"
-        if any(_filesystem_inside(path, inventory) for path in manifest_paths):
+        if any(filesystem_inside(path, inventory) for path in manifest_paths):
             raise CollectionError(f"output would replace the input manifest: {manifest}")
-        _check_inventory_path(inventory)
+        check_inventory_path(inventory)
     except (OSError, RuntimeError) as exc:
         raise CollectionError(f"cannot inspect output paths: {output}") from exc
     return output
 
 
-def _write_inventory_atomic(path: Path, inventory: list[dict[str, Any]]) -> None:
+def _write_inventory_atomic(path: Path, inventory: list[InventoryRecord]) -> None:
     """Replace the inventory entry; never truncate its existing inode/target."""
-    _check_inventory_path(path)
+    check_inventory_path(path)
     temporary: Path | None = None
     try:
         with tempfile.NamedTemporaryFile(
@@ -956,14 +814,14 @@ def _write_inventory_atomic(path: Path, inventory: list[dict[str, Any]]) -> None
             stream.flush()
             os.fchmod(stream.fileno(), 0o644)
             os.fsync(stream.fileno())
-        _check_inventory_path(path)
+        check_inventory_path(path)
         os.replace(temporary, path)
     finally:
         if temporary is not None:
             temporary.unlink(missing_ok=True)
 
 
-def assemble(manifest: Path, output: Path, pydasc: Path, dasc: Path) -> list[dict[str, Any]]:
+def assemble(manifest: Path, output: Path, pydasc: Path, dasc: Path) -> list[InventoryRecord]:
     try:
         checkouts = {"pydasc": pydasc.resolve(), "dasc": dasc.resolve()}
     except (OSError, RuntimeError) as exc:
@@ -972,20 +830,20 @@ def assemble(manifest: Path, output: Path, pydasc: Path, dasc: Path) -> list[dic
     before = {name: _tree_state(repo) for name, repo in checkouts.items()}
     entries = load_manifest(manifest, checkouts)
     selected = {(entry.source_name, entry.source.as_posix()): entry for entry in entries}
-    inventory: list[dict[str, Any]] = []
+    inventory: list[InventoryRecord] = []
     with tempfile.TemporaryDirectory(prefix="dasc-assembly-") as temporary:
         stage = Path(temporary) / "docs"
         for entry in entries:
             root = checkouts[entry.source_name]
             source = root.joinpath(*entry.source.parts)
-            if source.is_symlink() or not _inside(source.resolve(strict=False), root) or not source.is_file():
+            if source.is_symlink() or not path_inside(source.resolve(strict=False), root) or not source.is_file():
                 raise CollectionError(f"unsafe or missing source: {entry.source}")
             if source.stat().st_size > MAX_FILE_BYTES:
                 raise CollectionError(f"oversized source: {entry.source}")
             if _git_object_kind(root, entry.content_commit, entry.source) != "blob":
                 raise CollectionError(f"source is not a regular Git blob: {entry.source}")
             committed = _git(root, "show", f"{entry.content_commit}:{entry.source.as_posix()}", binary=True)
-            data = _read_regular_file(source, "source document")
+            data = read_regular_file(source, "source document")
             if data != committed:
                 raise CollectionError(f"source differs from approved commit: {entry.source}")
             destination = stage.joinpath(*entry.destination.parts)

@@ -79,14 +79,13 @@ new validation and the per-table accessibility check.
    Event conditions, environment approvals, tokens, permissions and deployment
    remain in the workflows. See the [follow-up verification](#shared-release-checks)
    for real release fixtures and retained pull-request secret-isolation tests.
-4. **Define small shared publication-policy modules.**
-   `validate_docs.py` and `update_source_locks.py` import private helpers from
-   the collector. Once the validation stages are explicit, extract the bounded
-   file/JSON readers and manifest/provenance types into a narrow shared API.
-   Preserve symlink, file-identity, byte-limit and duplicate-key protections;
-   keep this separate from behavioral changes to Markdown handling.
+4. **Define small shared publication-policy modules — completed.**
+   `publication_io.py` owns guarded readers and filesystem checks;
+   `publication_policy.py` owns shared identities, errors and provenance types.
+   Consumers use the public APIs with the original safety checks and validation
+   order. See the [follow-up verification](#shared-publication-policy-modules).
 
-Item 4 remains a follow-up recommendation. The completed refactors preserve
+All four refactors are complete. The completed refactors preserve
 the publication allowlist, source locks and approval requirements.
 
 ## Verification
@@ -212,3 +211,46 @@ exact approved local checkouts. Generated documents, inventory and all **84
 built-site files**, including directory inventories, match the baseline.
 Formatting, undefined/unused-import and whitespace checks pass. Remote Actions
 have not been run for these uncommitted changes.
+
+## Shared publication-policy modules
+
+Follow-up completed on 7 October 2026 against baseline `774e2c3`.
+
+`publication_policy.py` now defines the shared errors, canonical source identities,
+metadata rules and immutable `Entry` selection/provenance record. `InventoryRecord`
+describes the existing serialized inventory fields as a `TypedDict`; it adds no
+runtime schema conversion or validation bypass. The validator retains every
+explicit field check in its original order.
+
+`publication_io.py` exposes bounded regular-file reads, duplicate-key rejecting
+JSON/YAML readers, guarded stream opening, inventory-path checks and lexical or
+filesystem-identity containment checks. The original `lstat`/`fstat` identity
+comparisons, no-follow/nonblocking open flags, before/after-read size checks,
+controlled exceptions and duplicate/non-string key rejection are preserved.
+Only the website-manifest reader resolves an explicit input symlink. Unpublished
+source integrity hashes continue to stream large files without imposing the
+publication size limit.
+
+The collector, document validator, source-lock updater and release checker now
+import these public APIs. Git-backed manifest approval and assembly remain in
+the collector. Its existing public `load_manifest`, `assemble` and imported
+error/type names remain available. Markdown parsing, rewriting and HTML policy
+were not moved or changed; the validator still uses the existing Markdown
+helpers. Workflows, source locks and publication policy are unchanged.
+
+Verification compares all **35 original collector definitions**, including the
+relocated helpers/classes, and all **17 validator/updater/release-check functions**
+against the baseline syntax trees after normalizing API names, docstrings and
+type-only annotations/casts. All original policy, Markdown and HTML constants
+are identical. Existing adversarial tests target the new API directly while
+retaining real Git and filesystem behavior.
+
+Four additional regressions cover exact-limit reads, growth after the size
+check, directory-entry replacement after opening, and the explicit website
+manifest symlink exception. All four pass against both implementations.
+The full suite passes **322 tests**, with the same **9 case-insensitive-filesystem
+skips**. The complete shared release command passes against the approved local
+checkouts. Generated documents, inventory, directory inventories and all **84
+built-site files** are identical to the baseline. Formatting checks for the new
+modules/formatted consumers, undefined/unused-import checks and whitespace
+checks pass. Remote Actions have not been run for these uncommitted changes.

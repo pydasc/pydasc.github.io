@@ -71,6 +71,9 @@ failing check.
 - [x] Share the complete release-check command across all three workflows,
   retaining workflow permissions, approvals and private-source isolation.
   See the [release-check follow-up](COMPATIBILITY_REVIEW.md#shared-release-checks).
+- [x] Extract shared publication types and guarded file/JSON/YAML readers,
+  preserving filesystem and schema protections without changing Markdown
+  behavior; see the [policy-module follow-up](COMPATIBILITY_REVIEW.md#shared-publication-policy-modules).
 - [x] Refresh the pinned documentation dependency baseline and validate it
   with strict MkDocs 1.6.1 checks (record 020).
 - [ ] Evaluate MkDocs 2.0 compatibility before a future major upgrade.
