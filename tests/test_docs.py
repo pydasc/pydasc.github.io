@@ -801,3 +801,34 @@ def test_atomic_writer_rechecks_inventory_before_replacement(tmp_path, monkeypat
         collect_docs._write_inventory_atomic(inventory, [])
     assert external.read_text() == "untouched"
     assert not list(tmp_path.glob(".generated-inventory-*.tmp"))
+
+
+def test_publication_output_characterization(tmp_path):
+    """Independently specify approved bytes and provenance, not generator internals."""
+    manifest, pydasc, dasc = fixture(tmp_path, ptext="# P\n[License](LICENSE)\n")
+    output = tmp_path / "published"
+    inventory = assemble(manifest, output, pydasc, dasc)
+    for item in inventory:
+        project = "PyDASC" if item["destination"].startswith("pydasc/") else "DASC"
+        attribution = "" if project == "PyDASC" else "Test"
+        url = f"{item['repository']}/blob/{item['commit']}/README.md"
+        expected = (
+            f"<!-- Generated; source={url}; status=Reviewed; license=MIT; attribution={attribution}; do not edit. -->\n\n"
+            '!!! info "Publication record"\n'
+            f"    **Project:** {project} · **Status:** Reviewed · **License:** `MIT`  \n"
+            + (f"    **Attribution:** {attribution}  \n" if attribution else "")
+            + f"    **Immutable revision:** [`{item['commit']}`]({url}) · **Source path:** `README.md`\n\n"
+        )
+        expected += (
+            f"# P\n[License]({item['repository']}/blob/{item['commit']}/LICENSE)\n"
+            if project == "PyDASC" else "# D\n"
+        )
+        assert (output / item["destination"]).read_bytes() == expected.encode()
+        assert item == {
+            "destination": "pydasc/index.md" if project == "PyDASC" else "dasc/index.md",
+            "sha256": hashlib.sha256(expected.encode()).hexdigest(),
+            "repository": f"https://github.com/pydasc/{'pydasc' if project == 'PyDASC' else 'dasc'}",
+            "source": "README.md", "commit": item["commit"], "status": "Reviewed",
+            "license": "MIT", "attribution": attribution,
+        }
+    validate(manifest, output)
