@@ -42,8 +42,11 @@ failing check.
   local browser guidance.
 - [x] Confirm Documentation checks and Deploy documentation to Pages succeed
   at committed 95de4c6 (4 October 2026; run links in the status record).
-- [ ] Recheck both workflows after the next authorized commit/push; local
-  documentation edits are not covered by the previous remote success.
+- [ ] Confirm both workflows at local `6d96334` after an authorized push and
+  existing environment approvals. The six local commits are not on remote
+  `main`; [remote inspection](COMPATIBILITY_REVIEW.md#remote-ci-verification-follow-up)
+  confirms only older runs succeeded. Explicit authorization is required for
+  the push that can trigger production Pages deployment.
 
 ## P2 — Strengthen maintainability
 

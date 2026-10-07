@@ -254,3 +254,26 @@ checkouts. Generated documents, inventory, directory inventories and all **84
 built-site files** are identical to the baseline. Formatting checks for the new
 modules/formatted consumers, undefined/unused-import checks and whitespace
 checks pass. Remote Actions have not been run for these uncommitted changes.
+
+## Remote CI verification follow-up
+
+Inspected GitHub Actions on 7 October 2026. Remote `main` is
+`0a1b1906a17668554bd3f63e1d5517ae076fd4c2`; local `main` is
+`6d963347941213ca1f2676d23d861b3e0284cc2f`, six commits ahead. The earlier
+references to uncommitted refactors above describe their original verification
+checkpoints; those refactors are now committed locally but not pushed.
+
+| Workflow | Verified revision | Result |
+| --- | --- | --- |
+| Documentation checks | `0e4310b192b2300b6af174352eb02abe39207fd7` | [Success](https://github.com/pydasc/pydasc.github.io/actions/runs/37496906091), both `docs` and `source-docs` jobs |
+| Deploy documentation to Pages | `0a1b1906a17668554bd3f63e1d5517ae076fd4c2` | [Success](https://github.com/pydasc/pydasc.github.io/actions/runs/37500519311), both `build` and `deploy` jobs |
+
+These completed runs cover older revisions, not the six local commits. Remote
+verification of `6d96334` remains open until it is pushed and its Documentation
+checks and Pages runs succeed. Local verification at that revision is **322
+passed, 9 filesystem-dependent skips**, with the complete release check passing.
+
+Automatic approval review rejected a direct push to `main` because it can
+trigger production Pages deployment and requires explicit authorization. The
+push was not executed. Next steps are explicit push authorization, the existing
+environment approvals, and recording successful runs for the exact pushed SHA.
