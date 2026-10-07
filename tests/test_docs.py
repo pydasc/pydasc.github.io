@@ -832,3 +832,42 @@ def test_publication_output_characterization(tmp_path):
             "license": "MIT", "attribution": attribution,
         }
     validate(manifest, output)
+
+
+@pytest.mark.parametrize("quote", ["'", '"'])
+def test_lock_updates_preserve_quotes_comments_and_indentation(tmp_path, quote):
+    import re
+    manifest, pydasc, dasc = fixture(tmp_path)
+    text = manifest.read_text()
+    text = re.sub(r"(checkout_commit: )([0-9a-f]{40})", lambda m:m[1]+quote+m[2]+quote+" # reviewed", text)
+    text = "# Retain this comment\n" + text
+    manifest.write_text(text)
+    old = git(pydasc, "rev-parse", "HEAD")
+    (pydasc / "new.txt").write_text("candidate")
+    git(pydasc, "add", "."); git(pydasc, "commit", "-qm", "candidate")
+    new = git(pydasc, "rev-parse", "HEAD")
+    update_source_locks(manifest, {"pydasc":pydasc,"dasc":dasc})
+    assert manifest.read_text() == text.replace(old, new)
+
+
+@pytest.mark.parametrize("failure", ["replace", "concurrent"])
+def test_manifest_replacement_failure_preserves_file(tmp_path, monkeypatch, failure):
+    import update_source_locks as updater
+    manifest = tmp_path / "manifest.yml"
+    manifest.write_text("old")
+    identity = manifest.stat()
+    if failure == "replace":
+        def fail(*args): raise OSError("injected replace failure")
+        monkeypatch.setattr(updater.os, "replace", fail)
+        error = OSError
+        expected = "old"
+    else:
+        def concurrent(fd): manifest.write_text("operator change")
+        monkeypatch.setattr(updater.os, "fsync", concurrent)
+        error = CollectionError
+        expected = "operator change"
+    with pytest.raises(error):
+        updater._replace_manifest(manifest, manifest, b"old", identity, "new")
+    assert manifest.read_text() == expected
+    assert not list(tmp_path.glob(".manifest-*"))
+    assert not list(tmp_path.glob("*.update-lock"))

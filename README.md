@@ -369,3 +369,13 @@ Do not infer success from the presence of an inventory alone. Remove the lock
 only after restoring/verifying one complete generation, then rerun the full
 release checks. Power-loss durability and hostile concurrent filesystem mutation
 are not guaranteed by this protocol; ambiguous recovery must fail closed.
+
+
+Source-lock updates preserve plain/single-quoted/double-quoted SHA formatting
+and unrelated comments. Ambiguous aliased/anchored lock edits are rejected.
+The complete candidate must pass contract checks before a same-directory atomic
+replacement; stale content, changed file identity or an active update lock stops
+the write. Explicit manifest symlinks retain their link and update only the
+verified target. An interrupted `.manifest-name.update-lock/` must be inspected
+and removed only after confirming no updater is running; temporary files are not
+publication approvals.
