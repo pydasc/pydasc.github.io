@@ -693,7 +693,7 @@ def test_svg_publication_is_rejected(tmp_path, payload):
         {"source": "attack.svg", "destination": "pydasc/assets/attack.svg"}
     )
     m.write_text(yaml.safe_dump(data))
-    with pytest.raises(CollectionError, match="invalid approved file"):
+    with pytest.raises(CollectionError, match="invalid (approved|selected) file"):
         assemble(m, tmp_path / "out", p, d)
 
 

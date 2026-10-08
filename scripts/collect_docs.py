@@ -25,6 +25,13 @@ from urllib.parse import SplitResult, quote, unquote_to_bytes, urlsplit
 import markdown
 import yaml
 
+from source_manifest import load_manifest, _source_contract
+from publication_models import (
+    ApprovedEntry as Entry,
+    ApprovedEntry,
+    InventoryRecord,
+    provenance_banner,
+)
 from html_policy import unique_attributes
 
 from publication_errors import CollectionError, UnapprovedPublicationError
@@ -192,19 +199,6 @@ def _validate_markdown_html(text: str, source: PurePosixPath) -> None:
         raise
     except Exception as exc:
         raise CollectionError(f"invalid raw HTML in {source}") from exc
-
-
-@dataclass(frozen=True)
-class Entry:
-    source_name: str
-    repository: str
-    checkout_commit: str
-    content_commit: str
-    source: PurePosixPath
-    destination: PurePosixPath
-    status: str
-    license_id: str
-    attribution: str
 
 
 @dataclass(frozen=True)
@@ -488,208 +482,6 @@ def _has_reference_definition(text: str) -> bool:
     return bool(parser.references)
 
 
-def _source_contract(
-    path: Path,
-    name: str,
-    repository: str,
-    checkout: str,
-    raw_contract: bytes | None = None,
-) -> tuple[str, dict[str, dict[str, Any]]]:
-    context = f"{name} publication manifest"
-    raw = _read_json(
-        raw_contract if raw_contract is not None else _read_regular_file(path, context),
-        context,
-    )
-    root_keys = {"schema_version", "project", "repository", "source_commit", "files"}
-    if name == "dasc":
-        root_keys.add("publication_decision")
-    root = _mapping(raw, root_keys, f"{name} publication manifest")
-    accepted_repository = isinstance(root["repository"], str) and root["repository"] in {
-        repository,
-        LEGACY_CONTRACT_REPOSITORIES[name],
-    }
-    if (
-        type(root["schema_version"]) is not int
-        or root["schema_version"] != 1
-        or root["project"] != name
-        or not accepted_repository
-    ):
-        raise CollectionError(f"invalid {name} publication identity/schema")
-    content = root["source_commit"]
-    if not isinstance(content, str) or not SHA_RE.fullmatch(content):
-        raise CollectionError(f"invalid {name} source_commit")
-    if name == "dasc":
-        decision = _mapping(
-            root["publication_decision"], {"state", "reason", "evidence"}, "dasc decision"
-        )
-        if not isinstance(decision["state"], str) or not decision["state"].strip():
-            raise CollectionError("invalid DASC publication decision state")
-        if decision["state"] != "approved":
-            raise UnapprovedPublicationError("DASC publication decision is not approved")
-        if any(
-            not isinstance(decision[field], str) or not decision[field].strip()
-            for field in ("reason", "evidence")
-        ):
-            raise CollectionError("invalid DASC publication decision evidence")
-    if _git(path.parent, "rev-parse", "HEAD").strip() != checkout:
-        raise CollectionError(f"{name} checkout commit mismatch")
-    approved: dict[str, dict[str, Any]] = {}
-    approved_sources: set[str] = set()
-    approved_destinations: set[str] = set()
-    if not isinstance(root["files"], list):
-        raise CollectionError(f"{name} files must be a list")
-    for index, item in enumerate(root["files"]):
-        item = _mapping(
-            item,
-            {"source", "destination", "media_type", "documentation_status", "redistribution"},
-            f"{name}.files[{index}]",
-        )
-        source = _path(item["source"], "source")
-        destination = _path(item["destination"], "destination")
-        if (
-            destination.parts[0] != name
-            or source.suffix.lower() not in ALLOWED
-            or item["media_type"] != MEDIA[source.suffix.lower()]
-        ):
-            raise CollectionError(f"invalid approved file: {source}")
-        folded_source = source.as_posix().casefold()
-        folded_destination = destination.as_posix().casefold()
-        if folded_source in approved_sources:
-            raise CollectionError(f"duplicate approved source: {source}")
-        if folded_destination in approved_destinations:
-            raise CollectionError(f"duplicate approved destination: {destination}")
-        approved_sources.add(folded_source)
-        approved_destinations.add(folded_destination)
-        status = _mapping(item["documentation_status"], {"label", "evidence"}, "status")
-        if (
-            not isinstance(status["label"], str)
-            or status["label"] not in DOCUMENTATION_STATUSES
-            or not isinstance(status["evidence"], str)
-            or not status["evidence"].strip()
-        ):
-            raise CollectionError(f"invalid status for {source}")
-        rights_keys = {"spdx_license", "license_file"} | (
-            {"attribution"} if name == "dasc" else set()
-        )
-        rights = _mapping(item["redistribution"], rights_keys, "redistribution")
-        if not isinstance(rights["spdx_license"], str) or not SPDX_RE.fullmatch(
-            rights["spdx_license"]
-        ):
-            raise CollectionError(f"invalid SPDX license for {source}")
-        if name == "dasc" and (
-            not isinstance(rights["attribution"], str)
-            or not rights["attribution"].strip()
-            or UNSAFE_ATTRIBUTION_RE.search(rights["attribution"])
-        ):
-            raise CollectionError(f"invalid attribution for {source}")
-        license_path = _path(rights["license_file"], "license_file")
-        if _git_object_kind(path.parent, content, license_path) != "blob":
-            raise CollectionError(f"missing or unsafe license at approved commit for {source}")
-        license_bytes = _git(
-            path.parent, "show", f"{content}:{license_path.as_posix()}", binary=True
-        )
-        if not license_bytes:
-            raise CollectionError(f"missing license at approved commit for {source}")
-        approved[source.as_posix()] = {
-            **item,
-            "_destination": destination,
-            "_status": status["label"],
-            "_license": rights["spdx_license"],
-            "_attribution": rights.get("attribution", ""),
-        }
-    return content, approved
-
-
-def load_manifest(path: Path, checkouts: dict[str, Path] | None = None) -> list[Entry]:
-    root = _mapping(_read_yaml(path), {"schema_version", "sources"}, "website manifest")
-    if (
-        type(root["schema_version"]) is not int
-        or root["schema_version"] != 2
-        or not isinstance(root["sources"], dict)
-        or set(root["sources"]) != set(EXPECTED)
-    ):
-        raise CollectionError("website manifest must be schema 2 with exactly pydasc and dasc")
-    entries: list[Entry] = []
-    destinations: set[str] = set()
-    for name, repository in EXPECTED.items():
-        source = _mapping(
-            root["sources"][name],
-            {"repository", "checkout_commit", "publication_manifest", "files"},
-            f"source {name}",
-        )
-        checkout_commit = source["checkout_commit"]
-        if (
-            source["repository"] != repository
-            or not isinstance(checkout_commit, str)
-            or not SHA_RE.fullmatch(checkout_commit)
-        ):
-            raise CollectionError(f"invalid lock identity/commit for {name}")
-        manifest_rel = _path(source["publication_manifest"], "publication_manifest")
-        if not isinstance(source["files"], list) or not source["files"]:
-            raise CollectionError(f"{name} lock files must be non-empty")
-        approved: dict[str, dict[str, Any]] = {}
-        content_commit = "0" * 40
-        if checkouts is not None:
-            checkout = checkouts[name].resolve()
-            contract = checkout.joinpath(*manifest_rel.parts)
-            if contract.is_symlink() or not _inside(contract.resolve(), checkout):
-                raise CollectionError(f"unsafe {name} publication manifest")
-            working_contract = _read_regular_file(contract, f"{name} publication manifest")
-            if _git(checkout, "rev-parse", "HEAD").strip() != checkout_commit:
-                raise CollectionError(f"{name} checkout commit mismatch")
-            committed_contract = _git(
-                checkout,
-                "show",
-                f"{checkout_commit}:{manifest_rel.as_posix()}",
-                binary=True,
-            )
-            if working_contract != committed_contract:
-                raise CollectionError(f"{name} publication manifest differs from locked commit")
-            content_commit, approved = _source_contract(
-                contract,
-                name,
-                repository,
-                checkout_commit,
-                committed_contract,
-            )
-        for index, selected in enumerate(source["files"]):
-            selected = _mapping(selected, {"source", "destination"}, f"{name}.files[{index}]")
-            src = _path(selected["source"], "source")
-            dest = _path(selected["destination"], "destination")
-            if (
-                dest.parts[0] != name
-                or src.suffix.lower() not in ALLOWED
-                or src.suffix.lower() != dest.suffix.lower()
-            ):
-                raise CollectionError(f"invalid selected file {src} -> {dest}")
-            folded = dest.as_posix().casefold()
-            if folded in destinations:
-                raise CollectionError(f"duplicate destination: {dest}")
-            destinations.add(folded)
-            if checkouts is not None:
-                offer = approved.get(src.as_posix())
-                if offer is None or offer["_destination"] != dest:
-                    raise CollectionError(f"missing source approval: {src} -> {dest}")
-                entries.append(
-                    Entry(
-                        name,
-                        repository,
-                        checkout_commit,
-                        content_commit,
-                        src,
-                        dest,
-                        offer["_status"],
-                        offer["_license"],
-                        offer["_attribution"],
-                    )
-                )
-            else:
-                entries.append(
-                    Entry(name, repository, checkout_commit, content_commit, src, dest, "", "", "")
-                )
-    return entries
-
-
 def _rewrite(
     text: str, entry: Entry, selected: dict[tuple[str, str], Entry], checkout: Path
 ) -> str:
@@ -833,6 +625,8 @@ def assemble(manifest: Path, output: Path, pydasc: Path, dasc: Path) -> list[dic
     output = _preflight_output(output, checkouts, manifest)
     before = {name: _tree_state(repo) for name, repo in checkouts.items()}
     entries = load_manifest(manifest, checkouts)
+    if any(not isinstance(entry, ApprovedEntry) for entry in entries):
+        raise CollectionError("assembly requires approved entries")
     selected = {(entry.source_name, entry.source.as_posix()): entry for entry in entries}
     inventory: list[dict[str, Any]] = []
     with tempfile.TemporaryDirectory(prefix="dasc-assembly-") as temporary:
@@ -872,7 +666,19 @@ def assemble(manifest: Path, output: Path, pydasc: Path, dasc: Path) -> list[dic
                 encoded_source = quote(entry.source.as_posix(), safe="/")
                 source_url = f"{entry.repository}/blob/{entry.content_commit}/{encoded_source}"
                 project = "PyDASC" if entry.source_name == "pydasc" else "DASC"
-                banner = f"<!-- Generated; source={source_url}; status={entry.status}; license={entry.license_id}; attribution={entry.attribution}; do not edit. -->\n\n"
+                banner = (
+                    provenance_banner(
+                        {
+                            "repository": entry.repository,
+                            "commit": entry.content_commit,
+                            "source": entry.source.as_posix(),
+                            "status": entry.status,
+                            "license": entry.license_id,
+                            "attribution": entry.attribution,
+                        }
+                    )
+                    + "\n"
+                )
                 attribution = (
                     f"    **Attribution:** {entry.attribution}  \n" if entry.attribution else ""
                 )
@@ -885,18 +691,7 @@ def assemble(manifest: Path, output: Path, pydasc: Path, dasc: Path) -> list[dic
                 )
                 data = (banner + publication + body.rstrip() + "\n").encode()
             destination.write_bytes(data)
-            inventory.append(
-                {
-                    "destination": entry.destination.as_posix(),
-                    "sha256": hashlib.sha256(data).hexdigest(),
-                    "repository": entry.repository,
-                    "source": entry.source.as_posix(),
-                    "commit": entry.content_commit,
-                    "status": entry.status,
-                    "license": entry.license_id,
-                    "attribution": entry.attribution,
-                }
-            )
+            inventory.append(InventoryRecord.from_approved(entry, data).mapping())
         # Recheck the entire boundary after staging, before touching any output.
         _preflight_output(output, checkouts, manifest)
         if before != {name: _tree_state(repo) for name, repo in checkouts.items()}:

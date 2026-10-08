@@ -9,6 +9,7 @@ from urllib.parse import quote
 from safe_files import read_regular_file as _read_regular_file
 from safe_files import check_inventory_path as _check_inventory_path
 from structured_input import read_json as _read_json
+from publication_models import provenance_banner
 from collect_docs import (
     DOCUMENTATION_STATUSES,
     EXPECTED,
@@ -117,7 +118,7 @@ def validate(manifest: Path, docs: Path) -> None:
             text = data.decode("utf-8")
             encoded_source = quote(item["source"], safe="/")
             source_url = f"{item['repository']}/blob/{item['commit']}/{encoded_source}"
-            banner = f"<!-- Generated; source={source_url}; status={item['status']}; license={item['license']}; attribution={item['attribution']}; do not edit. -->\n"
+            banner = provenance_banner(item)
             if FORBIDDEN.search(text) or not text.startswith(banner):
                 raise CollectionError(f"unsafe/missing provenance: {relative}")
             matches = _markdown_link_matches(
