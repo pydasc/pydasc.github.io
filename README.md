@@ -426,3 +426,15 @@ Untrusted-PR checks still run without access to private sources or credentials.
 Browser checks are documented in [the local browser guide](docs/operations/browser-checks.md).
 Full protected CI releases require `--browser-tests`; local Python-only checks
 remain available before the separate browser runtime is installed.
+
+
+The source-free filesystem CI subset runs on Linux and macOS. Locally, run:
+
+```bash
+python -m pytest -q -rs tests/test_output_safety.py tests/test_input_safety.py \
+  -k 'case_alias or filesystem_containment or regular_reader or output_identity'
+```
+
+Case-sensitive and case-insensitive checks report explicit skips where a filesystem
+cannot exercise them. Local macOS success does not assert that the new Linux CI job
+has run; remote results require a later authorized push/run.

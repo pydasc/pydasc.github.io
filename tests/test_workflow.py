@@ -74,7 +74,7 @@ def test_actions_are_immutable_and_source_credentials_are_protected():
 def test_untrusted_pr_job_is_source_free_and_read_only():
     workflow = load(WORKFLOW)
     assert workflow["permissions"] == {"contents": "read"}
-    assert set(workflow["jobs"]) == {"docs", "source-docs"}
+    assert set(workflow["jobs"]) == {"docs", "source-docs", "filesystem"}
     job = workflow["jobs"]["docs"]
     assert "environment" not in job
     assert "secrets." not in yaml.safe_dump(job)
@@ -220,3 +220,13 @@ def test_browser_checks_gate_each_full_release():
             for step in job["steps"]:
                 if "actions/setup-node@" in step.get("uses", "") or "npm ci" in step.get("run", ""):
                     assert step["if"] == "steps.changes.outputs.changed == 'true'"
+
+
+def test_filesystem_matrix_is_source_free_and_complementary():
+    job = load(WORKFLOW)["jobs"]["filesystem"]
+    assert job["strategy"]["matrix"]["os"] == ["ubuntu-latest", "macos-latest"]
+    assert "environment" not in job and "secrets." not in yaml.safe_dump(job)
+    combined = "\n".join(commands(job))
+    assert "-rs" in combined
+    for group in ["case_alias", "filesystem_containment", "regular_reader", "output_identity"]:
+        assert group in combined
