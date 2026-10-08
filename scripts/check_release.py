@@ -4,36 +4,75 @@
 from __future__ import annotations
 import argparse
 import hashlib
+import os
+import stat
+from types import SimpleNamespace
 from pathlib import Path
 import subprocess
 import sys
 import yaml
-from safe_files import read_regular_file
+from safe_files import read_regular_file, filesystem_inside
+from publication_errors import CollectionError
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
-class ReleaseCheckError(ValueError):
+class ReleaseCheckError(CollectionError):
     pass
 
 
-def snapshot(docs: Path) -> dict[str, str]:
-    paths = [docs / "generated-inventory.json"]
-    for name in ("pydasc", "dasc"):
-        paths.extend(sorted(p for p in (docs / name).rglob("*") if p.is_file()))
-    return {
-        str(path.relative_to(docs)): hashlib.sha256(
-            read_regular_file(path, "generated snapshot")
-        ).hexdigest()
-        for path in paths
+def _tree_entries(root: Path):
+    """Walk regular files/directories without following symlinks or hiding errors."""
+    if root.is_symlink() or not root.is_dir():
+        raise CollectionError(f"missing/unsafe release directory: {root}")
+    pending = [root]
+    while pending:
+        with os.scandir(pending.pop()) as children:
+            for child in children:
+                path = Path(child.path)
+                mode = child.stat(follow_symlinks=False).st_mode
+                if stat.S_ISDIR(mode):
+                    yield path, True
+                    pending.append(path)
+                elif stat.S_ISREG(mode):
+                    yield path, False
+                else:
+                    raise CollectionError(f"unsafe release entry: {path}")
+
+
+def snapshot(docs: Path) -> dict[str, str | None]:
+    """Fingerprint the complete generated tree, including empty directories."""
+    inventory = docs / "generated-inventory.json"
+    snapshot: dict[str, str | None] = {
+        inventory.name: hashlib.sha256(read_regular_file(inventory, "inventory")).hexdigest()
     }
+    for namespace in ("pydasc", "dasc"):
+        for path, is_directory in _tree_entries(docs / namespace):
+            snapshot[path.relative_to(docs).as_posix()] = (
+                None
+                if is_directory
+                else hashlib.sha256(read_regular_file(path, "generated document")).hexdigest()
+            )
+    return snapshot
 
 
 def check(options, runner=None) -> list[str]:
     runner = runner or subprocess.run
     config = options.config.resolve(strict=True)
     docs = options.docs.resolve()
+    if options.site.is_symlink():
+        raise ReleaseCheckError("unsafe site output directory: symlink")
     site = options.site.resolve()
+    for source in (options.pydasc.resolve(), options.dasc.resolve()):
+        if filesystem_inside(site, source) or filesystem_inside(source, site):
+            raise ReleaseCheckError("site output overlaps a source checkout")
+    if (
+        filesystem_inside(docs, site)
+        or filesystem_inside(site, docs)
+        or filesystem_inside(config, site)
+        or filesystem_inside(options.manifest.resolve(), site)
+    ):
+        raise ReleaseCheckError("site output overlaps publication inputs")
     settings = yaml.safe_load(config.read_text())
     configured_docs = settings.get("docs_dir", "docs")
     if not isinstance(configured_docs, str) or (config.parent / configured_docs).resolve() != docs:
@@ -105,6 +144,24 @@ def check(options, runner=None) -> list[str]:
             raise ReleaseCheckError("release stage failed: browser-tests") from exc
         stages.append("browser-tests")
     return stages
+
+
+def check_release(root: Path, pydasc: Path, dasc: Path, *, runner=None):
+    """Preserve the remote root-based Python API using the shared release pipeline."""
+    root = root.resolve()
+    return check(
+        SimpleNamespace(
+            config=root / "mkdocs.yml",
+            manifest=root / "docs-manifest.yml",
+            docs=root / "docs",
+            site=root / "site",
+            pydasc=pydasc,
+            dasc=dasc,
+            skip_tests=True,
+            browser_tests=False,
+        ),
+        runner=runner,
+    )
 
 
 def main(argv=None) -> int:

@@ -324,3 +324,50 @@ def test_document_index_resolves_fragments_base_and_queries(tmp_path):
         index.validate(page, raw)
     with pytest.raises(ValueError, match="outside the configured site base"):
         index.validate(page, "/elsewhere/#target")
+
+
+@pytest.mark.parametrize(
+    "tables",
+    [
+        "<table><tr><th>Header</th></tr></table><table><tr><td>Missing header</td></tr></table>",
+        "<table><tr><td>Missing header</td></tr></table><table><tr><th>Header</th></tr></table>",
+        "<table><tr><td><table><tr><th>Nested header</th></tr></table></td></tr></table>",
+    ],
+    ids=["second-table", "first-table", "outer-table"],
+)
+def test_accessibility_audit_checks_headers_for_each_table(tmp_path, tables):
+    (tmp_path / "index.html").write_text(
+        '<!doctype html><html lang="en"><head><title>Page</title></head>'
+        '<body><nav aria-label="Primary"></nav><main><h1>Page</h1>'
+        '<div class="dasc-table-scroll" role="region" tabindex="0" '
+        f'aria-label="Tables">{tables}</div></main></body></html>',
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match=r"table \d+ markup has no header cells"):
+        validate_accessibility(tmp_path)
+
+
+def test_accessibility_audit_accepts_headers_in_each_table(tmp_path):
+    (tmp_path / "index.html").write_text(
+        '<!doctype html><html lang="en"><head><title>Page</title></head>'
+        '<body><nav aria-label="Primary"></nav><main><h1>Page</h1>'
+        '<div class="dasc-table-scroll" role="region" tabindex="0" '
+        'aria-label="Tables"><table><tr><th>First</th></tr></table>'
+        "<table><tr><th>Second</th></tr></table></div></main></body></html>",
+        encoding="utf-8",
+    )
+
+    validate_accessibility(tmp_path)
+
+
+def test_portal_enters_dasc_through_project_first_overview():
+    root = Path(__file__).parents[1]
+    assert (
+        "[Open the DASC documentation](dasc-project-overview.md)"
+        in (root / "docs/index.md").read_text()
+    )
+    assert (
+        "[DASC project overview](dasc-project-overview.md)"
+        in (root / "docs/getting-started.md").read_text()
+    )

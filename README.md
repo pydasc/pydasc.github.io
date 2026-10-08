@@ -381,3 +381,13 @@ has run; remote results require a later authorized push/run.
 
 Dependency intent, pins, clean reproduction and deliberate upgrades are described in
 [dependency maintenance](docs/operations/dependency-maintenance.md).
+
+### Reconciled compatibility checks
+
+The [dated compatibility review](tasks/COMPATIBILITY_REVIEW.md) records the parallel
+remote work. Its candidate-collection gate, complete directory snapshots and
+site/source-overlap checks are retained within the current modules. A candidate
+must collect successfully before any lock replacement. Site output cannot overlap
+source checkouts or publication inputs, and determinism includes empty directories.
+The shared release runner preserves `check_release(root, pydasc, dasc)` for Python
+callers in addition to the documented CLI. Scientific source locks are unchanged.

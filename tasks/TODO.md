@@ -57,6 +57,12 @@ failing check.
 
 ## P2 — Strengthen maintainability
 
+- [x] Integrate the remote [compatibility review](COMPATIBILITY_REVIEW.md), including
+  candidate collection before lock writes, validator ordering regressions and
+  real release integration tests, with the local WEB-REF module/workflow layout.
+- [ ] Verify the reconciled merge on remote CI after a separately authorized push;
+  the older remote success records do not cover this merged result.
+
 - [x] Add explicit tests rejecting duplicate source and destination entries in upstream
   publication contracts, not only duplicate website destinations.
 - [x] Validate publication-decision evidence, DASC attribution, inventory

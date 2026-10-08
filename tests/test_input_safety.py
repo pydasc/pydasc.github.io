@@ -14,6 +14,8 @@ import pytest
 import yaml
 
 from source_fixtures import fixture, git, hashes
+import safe_files
+import structured_input
 import collect_docs as collector
 import validate_docs as validator
 
@@ -357,3 +359,59 @@ def test_contract_location_is_not_assumed_to_be_one_directory_deep(tmp_path, loc
     collector.assemble(manifest, output, pydasc, dasc)
     validator.validate(manifest, output)
     assert hashes(pydasc) == before
+
+
+def test_regular_reader_accepts_exact_byte_limit(tmp_path):
+    path = tmp_path / "input"
+    path.write_bytes(b"1234")
+    assert safe_files.read_regular_file(path, "test input", max_bytes=4) == b"1234"
+
+
+def test_regular_reader_rejects_growth_after_size_check(tmp_path, monkeypatch):
+    path = tmp_path / "input"
+    path.write_bytes(b"1234")
+    original_fstat = os.fstat
+    calls = 0
+
+    def grow_after_stat(descriptor):
+        nonlocal calls
+        calls += 1
+        result = original_fstat(descriptor)
+        # The first stat checks the opened inode; the second checks its size.
+        if calls == 2:
+            with path.open("ab") as stream:
+                stream.write(b"5")
+        return result
+
+    monkeypatch.setattr(safe_files.os, "fstat", grow_after_stat)
+    with pytest.raises(collector.CollectionError, match="oversized test input"):
+        safe_files.read_regular_file(path, "test input", max_bytes=4)
+    assert calls == 2
+
+
+def test_regular_reader_rechecks_directory_entry_after_open(tmp_path, monkeypatch):
+    path = tmp_path / "input"
+    path.write_bytes(b"original")
+    replacement = tmp_path / "replacement"
+    replacement.write_bytes(b"replacement")
+    original_fstat = os.fstat
+
+    def swap_after_open(descriptor):
+        result = original_fstat(descriptor)
+        path.rename(tmp_path / "previous")
+        replacement.rename(path)
+        return result
+
+    monkeypatch.setattr(safe_files.os, "fstat", swap_after_open)
+    with pytest.raises(collector.CollectionError, match="file changed while opening"):
+        safe_files.read_regular_file(path, "test input", max_bytes=4)
+
+
+def test_only_website_manifest_reader_resolves_explicit_symlink(tmp_path):
+    path = tmp_path / "manifest.yml"
+    path.write_text("schema_version: 2\n")
+    alias = tmp_path / "alias.yml"
+    alias.symlink_to(path)
+    assert structured_input.read_yaml(alias) == {"schema_version": 2}
+    with pytest.raises(collector.CollectionError, match="expected a regular file"):
+        safe_files.read_regular_file(alias, "publication input")
