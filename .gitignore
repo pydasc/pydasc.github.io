@@ -74,3 +74,8 @@ docs/generated-inventory.json
 site/
 .pytest_cache/
 .venv/
+
+# Browser-check development dependencies
+node_modules/
+playwright-report/
+test-results/

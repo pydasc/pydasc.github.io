@@ -422,3 +422,7 @@ same checkout. Manifest, configuration, docs and site paths are explicit options
 the docs path must agree with the supplied MkDocs configuration. Source acquisition,
 source-lock changes, PR creation and deployment remain separate operations.
 Untrusted-PR checks still run without access to private sources or credentials.
+
+Browser checks are documented in [the local browser guide](docs/operations/browser-checks.md).
+Full protected CI releases require `--browser-tests`; local Python-only checks
+remain available before the separate browser runtime is installed.

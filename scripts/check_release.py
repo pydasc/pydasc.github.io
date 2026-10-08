@@ -93,6 +93,17 @@ def check(options, runner=None) -> list[str]:
     )
     execute("validate-accessibility", script("validate_accessibility.py", "--site", site))
     execute("scan-artifact", script("validate_artifact.py", "--site", site))
+    if getattr(options, "browser_tests", False):
+        print("[browser-tests]", flush=True)
+        try:
+            runner(
+                ["node", str(ROOT / "tests/browser/check_navigation.cjs"), str(site)],
+                cwd=config.parent,
+                check=True,
+            )
+        except (OSError, subprocess.SubprocessError) as exc:
+            raise ReleaseCheckError("release stage failed: browser-tests") from exc
+        stages.append("browser-tests")
     return stages
 
 
@@ -106,6 +117,11 @@ def main(argv=None) -> int:
     parser.add_argument("--dasc", type=Path, required=True)
     parser.add_argument(
         "--skip-tests", action="store_true", help="reuse a preceding test run of this same checkout"
+    )
+    parser.add_argument(
+        "--browser-tests",
+        action="store_true",
+        help="require installed pinned Playwright and Chromium",
     )
     args = parser.parse_args(argv)
     try:

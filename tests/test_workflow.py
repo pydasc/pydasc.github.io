@@ -202,3 +202,21 @@ def test_effective_job_permissions_have_narrow_write_boundaries():
                 assert effective == {"contents": "write", "pull-requests": "write"}
             else:
                 assert effective == {"contents": "read"}
+
+
+def test_browser_checks_gate_each_full_release():
+    for path, name in [
+        (WORKFLOW, "source-docs"),
+        (DEPLOY_WORKFLOW, "build"),
+        (UPDATE_WORKFLOW, "propose"),
+    ]:
+        job = load(path)["jobs"][name]
+        assert_order(
+            job, ["actions/setup-node@", "npm ci --ignore-scripts", "scripts/check_release.py"]
+        )
+        check = next(s for s in job["steps"] if "scripts/check_release.py" in s.get("run", ""))
+        assert "--browser-tests" in check["run"]
+        if path == UPDATE_WORKFLOW:
+            for step in job["steps"]:
+                if "actions/setup-node@" in step.get("uses", "") or "npm ci" in step.get("run", ""):
+                    assert step["if"] == "steps.changes.outputs.changed == 'true'"

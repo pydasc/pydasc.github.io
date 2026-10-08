@@ -1,0 +1,7 @@
+{
+  "name": "dasc-documentation-checks",
+  "private": true,
+  "engines": {"node": "24.19.0"},
+  "scripts": {"test:browser": "node tests/browser/check_navigation.cjs site"},
+  "devDependencies": {"playwright": "1.62.1"}
+}

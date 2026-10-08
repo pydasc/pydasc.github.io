@@ -91,11 +91,24 @@ jobs:
             echo "changed=true" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Set up browser-check runtime
+        if: steps.changes.outputs.changed == 'true'
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: "24.19.0"
+          cache: npm
+
+      - name: Install pinned browser checks
+        if: steps.changes.outputs.changed == 'true'
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          npx --no-install playwright install --with-deps chromium
+
       - name: Check complete release
         if: steps.changes.outputs.changed == 'true'
         run: >-
           python scripts/check_release.py --pydasc .source-checkouts/pydasc
-          --dasc .source-checkouts/dasc
+          --dasc .source-checkouts/dasc --browser-tests
 
       - name: Create source-lock pull request
         if: steps.changes.outputs.changed == 'true'

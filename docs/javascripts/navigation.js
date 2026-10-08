@@ -16,6 +16,8 @@
   control.addEventListener("keydown", (event) => {
     if (event.key === "Enter" || event.key === " ") {
       event.preventDefault();
+      // Material also handles Enter globally; keep one drawer activation.
+      event.stopPropagation();
       control.click();
     }
   });
