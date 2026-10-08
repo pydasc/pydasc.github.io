@@ -438,3 +438,6 @@ python -m pytest -q -rs tests/test_output_safety.py tests/test_input_safety.py \
 Case-sensitive and case-insensitive checks report explicit skips where a filesystem
 cannot exercise them. Local macOS success does not assert that the new Linux CI job
 has run; remote results require a later authorized push/run.
+
+Dependency intent, pins, clean reproduction and deliberate upgrades are described in
+[dependency maintenance](docs/operations/dependency-maintenance.md).

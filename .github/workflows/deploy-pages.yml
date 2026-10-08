@@ -35,6 +35,7 @@ jobs:
         run: |
           python -m pip install --requirement requirements-docs.txt
           python -m pip check
+          python scripts/check_dependencies.py
 
       - name: Create read-only token for private documentation sources
         id: source-token
