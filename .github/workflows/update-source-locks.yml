@@ -89,34 +89,11 @@ jobs:
             echo "changed=true" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Validate complete proposed release
+      - name: Check complete release
         if: steps.changes.outputs.changed == 'true'
-        shell: bash
-        run: |
-          set -euo pipefail
-          python -m pytest
-          python scripts/collect_docs.py \
-            --manifest docs-manifest.yml --output docs \
-            --pydasc .source-checkouts/pydasc --dasc .source-checkouts/dasc
-          python scripts/validate_docs.py --manifest docs-manifest.yml --docs docs
-          python scripts/validate_physics_docs.py --docs docs
-          snapshot="$RUNNER_TEMP/assembled-docs"
-          mkdir -p "$snapshot"
-          cp -a docs/pydasc docs/dasc docs/generated-inventory.json "$snapshot/"
-          python scripts/collect_docs.py \
-            --manifest docs-manifest.yml --output docs \
-            --pydasc .source-checkouts/pydasc --dasc .source-checkouts/dasc
-          diff --recursive --no-dereference "$snapshot/pydasc" docs/pydasc
-          diff --recursive --no-dereference "$snapshot/dasc" docs/dasc
-          cmp "$snapshot/generated-inventory.json" docs/generated-inventory.json
-          mkdocs build --strict
-          python scripts/validate_site.py --site site --css docs/stylesheets/readthedocs.css
-          python scripts/validate_accessibility.py --site site
-
-      - name: Scan proposed site artifact
-        if: steps.changes.outputs.changed == 'true'
-        shell: bash
-        run: python scripts/validate_artifact.py --site site
+        run: >-
+          python scripts/check_release.py --pydasc .source-checkouts/pydasc
+          --dasc .source-checkouts/dasc
 
       - name: Create source-lock pull request
         if: steps.changes.outputs.changed == 'true'

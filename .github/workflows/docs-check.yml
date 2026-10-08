@@ -121,37 +121,7 @@ jobs:
           python scripts/acquire_sources.py --manifest docs-manifest.yml
           --output .source-checkouts --mode reviewed
 
-      - name: Validate source contracts
-        run: |
-          python scripts/collect_docs.py \
-            --manifest docs-manifest.yml --output docs \
-            --pydasc .source-checkouts/pydasc --dasc .source-checkouts/dasc
-          python scripts/validate_docs.py --manifest docs-manifest.yml --docs docs
-          python scripts/validate_physics_docs.py --docs docs
-
-      - name: Verify deterministic assembly
-        shell: bash
-        run: |
-          set -euo pipefail
-          snapshot="$RUNNER_TEMP/assembled-docs"
-          mkdir -p "$snapshot"
-          cp -a docs/pydasc docs/dasc docs/generated-inventory.json "$snapshot/"
-          python scripts/collect_docs.py \
-            --manifest docs-manifest.yml --output docs \
-            --pydasc .source-checkouts/pydasc --dasc .source-checkouts/dasc
-          diff --recursive --no-dereference "$snapshot/pydasc" docs/pydasc
-          diff --recursive --no-dereference "$snapshot/dasc" docs/dasc
-          cmp "$snapshot/generated-inventory.json" docs/generated-inventory.json
-          python scripts/validate_docs.py --manifest docs-manifest.yml --docs docs
-
-      - name: Build strict site
-        run: mkdocs build --strict
-
-      - name: Validate site links and presentation assets
-        run: |
-          python scripts/validate_site.py --site site --css docs/stylesheets/readthedocs.css
-          python scripts/validate_accessibility.py --site site
-
-      - name: Scan complete site artifact
-        shell: bash
-        run: python scripts/validate_artifact.py --site site
+      - name: Check complete release
+        run: >-
+          python scripts/check_release.py --pydasc .source-checkouts/pydasc
+          --dasc .source-checkouts/dasc --skip-tests

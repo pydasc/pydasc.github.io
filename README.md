@@ -404,3 +404,21 @@ must be fresh and outside docs. `SOURCE_TOKEN` is passed through ephemeral Git
 configuration, with credential helpers and hooks disabled; it is never stored
 in repository configuration. Failed/partial acquisition directories must be
 inspected and replaced with a fresh destination rather than reset in place.
+
+
+### Complete local release checks
+
+From the repository root, with the exact approved source checkouts available:
+
+```bash
+python scripts/check_release.py \
+  --pydasc .source-checkouts/pydasc --dasc .source-checkouts/dasc
+```
+
+This runs tests, collection, provenance/physics checks, repeated-collection
+comparison, strict MkDocs build, site/accessibility validation and the complete
+artifact scan. `--skip-tests` is only for reusing a preceding test run of this
+same checkout. Manifest, configuration, docs and site paths are explicit options;
+the docs path must agree with the supplied MkDocs configuration. Source acquisition,
+source-lock changes, PR creation and deployment remain separate operations.
+Untrusted-PR checks still run without access to private sources or credentials.

@@ -96,48 +96,27 @@ def test_release_jobs_check_outputs_before_upload_or_proposal():
         (UPDATE_WORKFLOW, "propose"),
     ]:
         job = load(path)["jobs"][name]
-        assert_order(
-            job,
-            [
-                "scripts/collect_docs.py",
-                "scripts/validate_docs.py",
-                "mkdocs build --strict",
-                "scripts/validate_artifact.py",
-            ],
-        )
-        combined = "\n".join(commands(job))
-        for required in [
-            "scripts/validate_physics_docs.py",
-            "scripts/validate_accessibility.py",
-            "scripts/validate_site.py",
-            "diff --recursive --no-dereference",
-        ]:
-            assert required in combined
-        scans = [
-            step for step in job["steps"] if "scripts/validate_artifact.py" in step.get("run", "")
+        checks = [
+            step for step in job["steps"] if "scripts/check_release.py" in step.get("run", "")
         ]
-        assert len(scans) == 1
-        assert scans[0]["run"] == "python scripts/validate_artifact.py --site site"
+        assert len(checks) == 1
+        assert "--pydasc .source-checkouts/pydasc" in checks[0]["run"]
+        assert "--dasc .source-checkouts/dasc" in checks[0]["run"]
+        assert ("--skip-tests" in checks[0]["run"]) is (path == WORKFLOW)
         if path == DEPLOY_WORKFLOW:
             assert_order(
                 job,
                 [
-                    "scripts/validate_artifact.py",
+                    "scripts/check_release.py",
                     "actions/configure-pages@",
                     "actions/upload-pages-artifact@",
                 ],
             )
         elif path == UPDATE_WORKFLOW:
             assert_order(
-                job,
-                [
-                    "scripts/update_source_locks.py",
-                    "scripts/collect_docs.py",
-                    "scripts/validate_artifact.py",
-                    "gh pr create",
-                ],
+                job, ["scripts/update_source_locks.py", "scripts/check_release.py", "gh pr create"]
             )
-            assert scans[0]["if"] == "steps.changes.outputs.changed == 'true'"
+            assert checks[0]["if"] == "steps.changes.outputs.changed == 'true'"
 
 
 def test_private_acquisition_has_explicit_modes_and_no_persisted_website_credentials():
