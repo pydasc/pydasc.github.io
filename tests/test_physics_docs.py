@@ -8,7 +8,6 @@ import markdown
 import pytest
 
 ROOT = Path(__file__).parents[1]
-sys.path.insert(0, str(ROOT / "scripts"))
 
 from validate_physics_docs import MISPLACED_MEASURE_EXPONENT, validate
 

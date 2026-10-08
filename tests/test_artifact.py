@@ -3,7 +3,6 @@ import sys
 import os
 import pytest
 
-sys.path.insert(0, str(Path(__file__).parents[1] / "scripts"))
 from validate_artifact import validate, main
 
 

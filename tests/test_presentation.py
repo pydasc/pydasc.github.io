@@ -8,7 +8,6 @@ import yaml
 
 import sys
 
-sys.path.insert(0, str(Path(__file__).parents[1] / "scripts"))
 from validate_accessibility import validate as validate_accessibility
 from validate_site import validate as validate_site
 from mkdocs_hooks import on_page_content

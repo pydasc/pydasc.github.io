@@ -13,7 +13,7 @@ import sys
 import pytest
 import yaml
 
-from test_docs import fixture, git, hashes
+from source_fixtures import fixture, git, hashes
 import collect_docs as collector
 import validate_docs as validator
 
