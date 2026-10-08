@@ -77,7 +77,7 @@ sources:
 
 Adding a manifest entry is a publication decision. Confirm that the file is intentionally public, properly licensed, free of secrets and private links, and suitable for the portal. Wildcards and directory-wide copying are intentionally unsupported.
 
-The generated `docs/pydasc/` and `docs/dasc/` directories are intentionally ignored by Git and created in CI. The collector first validates the complete manifest, fetches only its exact commits, verifies path containment and file types, and then replaces only those two generated namespaces from a temporary staging tree. Repeated runs are covered by a byte-for-byte determinism test.
+The generated `docs/pydasc/` and `docs/dasc/` directories are intentionally ignored by Git and created in CI. Source acquisition fetches the exact locks separately. The collector validates the complete manifest and local approved checkouts, verifies path containment and file types, and then replaces only those two generated namespaces from a temporary staging tree. Repeated runs are covered by a byte-for-byte determinism test.
 
 Before staging or replacing output, the collector checks that the output directory and source checkouts do not overlap, that no output namespace contains the input manifest, and that every existing output target has the expected type. Overlap and manifest checks compare filesystem identities along existing ancestors, including capitalization aliases on case-insensitive filesystems and destinations that do not yet exist. Output-root and namespace symlinks are rejected. The inventory must be absent or a regular file; symlinks, dangling symlinks, directories, and special files are rejected before either namespace is changed. Inventory updates use an atomic replacement from a temporary file in the output directory, and document validation also rejects inventory symlinks and special files. Keep source checkouts outside the output directory.
 
@@ -87,60 +87,12 @@ Relative links to allowlisted files are relocated within the portal. Links to ex
 
 Link discovery verifies individual source occurrences with the configured Markdown renderer; links inside comments and code examples are left untouched. HTML entities are decoded for validation, while unchanged URLs retain their original Markdown spelling and rewritten URLs encode syntax-sensitive characters. Imported rendered HTML is checked for active elements, unsafe attributes, and unsafe URL schemes. Duplicate HTML attributes are rejected during both publication and built-site validation.
 
-## MkDocs configuration
+## Configuration
 
-The implementation should use this baseline:
-
-```yaml
-site_name: DASC Documentation
-site_description: Documentation for DASC and PyDASC
-site_url: https://pydasc.github.io/
-repo_name: pydasc/pydasc.github.io
-repo_url: https://github.com/pydasc/pydasc.github.io
-edit_uri: edit/main/docs/
-docs_dir: docs
-site_dir: site
-
-theme:
-  name: material
-  language: en
-  features:
-    - navigation.tabs
-    - navigation.sections
-    - navigation.indexes
-    - navigation.top
-    - navigation.tracking
-    - search.highlight
-    - search.share
-    - search.suggest
-    - content.code.copy
-
-plugins:
-  - search
-
-markdown_extensions:
-  - admonition
-  - attr_list
-  - footnotes
-  - md_in_html
-  - pymdownx.details
-  - pymdownx.highlight:
-      anchor_linenums: true
-  - pymdownx.inlinehilite
-  - pymdownx.superfences
-  - toc:
-      permalink: true
-
-nav:
-  - Home: index.md
-  - Getting started: getting-started.md
-  - PyDASC:
-      - Overview: pydasc/index.md
-  - DASC:
-      - Overview: dasc/index.md
-```
-
-Expand `nav` explicitly as documents are approved. Material for MkDocs and all plugins must be version-pinned in `requirements-docs.txt`.
+[`mkdocs.yml`](mkdocs.yml) is the current configuration, including explicit
+navigation, theme features, hooks and internal-document exclusions. Change that
+file rather than copying an old scaffold. New imports require a reviewed manifest
+entry and matching upstream approval; authored pages require explicit navigation.
 
 ### Presentation
 
@@ -164,34 +116,50 @@ python scripts/validate_site.py --site site \
   --css docs/stylesheets/readthedocs.css
 ```
 
-## Local preview
+## Local development and complete release checks
 
-Python 3.11 or newer and Git are recommended.
+Use Python **3.13.16** from `.python-version` and Git. From this repository root:
 
 ```bash
-python -m venv .venv
+python3.13 -m venv .venv
 source .venv/bin/activate
-python -m pip install --requirement requirements-docs.txt
-mkdocs serve
+python -m pip install --requirement requirements-dev.txt
+python -m pip check
+python scripts/check_dependencies.py
+python -m ruff format --check scripts tests
+python -m pytest -q -rs
 ```
 
-Open `http://127.0.0.1:8000/`. This builds the hand-written scaffold only and does not fetch either source repository. For its strict check, run:
+These tests use synthetic sources and need no private credentials. For a complete
+site, provide two local checkouts at the exact `docs-manifest.yml` commits:
 
 ```bash
-mkdocs build --strict
+python scripts/check_release.py \
+  --pydasc /path/to/approved-pydasc --dasc /path/to/approved-dasc
 ```
 
-After the deterministic source-assembly task is reviewed, the complete local sequence is:
+This one command runs tests, collects approved inputs twice, compares their bytes,
+validates provenance/physics, builds strictly, validates the rendered site and
+accessibility, and scans the complete artifact. `--skip-tests` is only for reusing
+a preceding successful test run of the same checkout. `--manifest`, `--config`,
+`--docs`, and `--site` accept explicit paths; docs must match the configuration.
+It neither acquires sources, changes locks, proposes a PR nor deploys.
+
+Protected CI also requires browser checks. With Node **24.19.0** available:
 
 ```bash
-python -m pytest
-python scripts/collect_docs.py --manifest docs-manifest.yml --output docs \
-  --pydasc /path/to/pydasc --dasc /path/to/dasc
-python scripts/validate_docs.py --manifest docs-manifest.yml --docs docs
-mkdocs build --strict
+npm ci --ignore-scripts --no-audit --no-fund
+npx --no-install playwright install chromium
+python scripts/check_release.py \
+  --pydasc /path/to/approved-pydasc --dasc /path/to/approved-dasc --browser-tests
 ```
 
-The two source paths must be local checkouts whose `HEAD` commits exactly match `docs-manifest.yml`. Assembly validates each checkout's `docs/publication-manifest.json`, reads approved Git objects and regular files only, never installs or executes source code, and writes a checksummed `docs/generated-inventory.json` excluded from the public site.
+After collection, `python -m mkdocs serve` provides a local preview at
+`http://127.0.0.1:8000/`. The explicit imported navigation requires the generated
+files; this is not a source-free scaffold preview. Never hand-edit generated pages.
+Read the [dependency procedure](docs/operations/dependency-maintenance.md) and
+[browser/manual checklist](docs/operations/browser-checks.md) for environment and
+accessibility details.
 
 ## API documentation and executable content
 
@@ -237,7 +205,7 @@ Its dependency cache is keyed by `requirements-docs.txt`; it neither uploads nor
 deploys an artifact.
 
 `deploy-pages.yml` runs on pushes to `main` and by manual dispatch on `main`.
-Its build job also requires `docs-sources` approval. It should:
+Its build job also requires `docs-sources` approval. It runs the shared release checks before upload:
 
 - check out `pydasc/pydasc.github.io`;
 - configure Python and install `requirements-docs.txt`;
@@ -250,7 +218,7 @@ Its build job also requires `docs-sources` approval. It should:
 `update-source-locks.yml` runs weekly and by manual dispatch on `main`, after
 `docs-sources` approval. It uses the same
 short-lived, read-only GitHub App token as the check and deployment workflows to
-clone each fixed private upstream repository and fetch the exact content commit declared
+acquire each fixed private upstream repository and fetch the exact content commit declared
 by its candidate publication contract, and validates the complete candidate
 before changing only `checkout_commit` values in `docs-manifest.yml`. A changed
 candidate must pass tests, deterministic assembly, publication validation, the
@@ -271,18 +239,10 @@ Actions to create and approve pull requests** must permit pull-request creation.
 Approval remains a human publication decision: review the immutable commits and
 content diff before merging an automated proposal.
 
-Use these workflow permissions and concurrency controls:
-
-```yaml
-permissions:
-  contents: read
-  pages: write
-  id-token: write
-
-concurrency:
-  group: pages
-  cancel-in-progress: false
-```
+All workflow defaults grant `contents: read`. Only the final Pages deploy job
+adds `pages: write` and `id-token: write`; only the protected source-update proposal
+job adds website contents/PR write permissions. The Pages concurrency group is
+`pages` with cancellation disabled. Source App tokens remain read-only.
 
 Pin every action to a reviewed commit SHA. Configure the repository's **Settings → Pages → Build and deployment → Source** to **GitHub Actions**. The workflow must not commit the built `site/` directory or use a `gh-pages` branch.
 
@@ -303,7 +263,14 @@ the deployment workflow until that release is explicitly authorized.
 - Deployment uses GitHub's short-lived OIDC credentials and minimal permissions.
 - A strict build, link checks, and tests must pass before upload.
 
-See [AGENTS.md](AGENTS.md) for contributor and automation rules and [docs/codex_tasks.md](docs/codex_tasks.md) for the sequential implementation tasks.
+[AGENTS.md](AGENTS.md) is the canonical contributor/automation policy;
+[Repository TODO](tasks/TODO.md) is the current task entry point.
+The [refactoring execution record](docs/operations/refactoring-progress.md) records
+local commits and checks. Dated plans and the
+[4 October status record](docs/operations/document-status.md) are history, not
+proof that later commits passed remote checks. CPU/GPU content promotion remains
+separately blocked on publication approval; see
+[its review task](tasks/CPU_GPU_PUBLICATION_REVIEW.md).
 
 ## License and attribution
 
@@ -337,17 +304,6 @@ keys, and forbidden local paths with:
 ```bash
 python scripts/validate_physics_docs.py --docs docs
 ```
-
-
-### Updated CI dependency baseline (2026-10-04)
-
-All workflows use Python 3.13.16 and the refreshed, fully pinned
-`requirements-docs.txt`, including Material for MkDocs 9.7.7, PyYAML 6.0.3 and
-pytest 9.1.1. Each installation runs `python -m pip check` before validation.
-Recreate an old virtual environment if its interpreter path was removed by a
-Python upgrade. Use the same requirements for local tests and strict builds.
-Reviewed source commits, publication contracts and deployment permissions are
-unchanged by a dependency refresh.
 
 
 ### Interrupted collection recovery
@@ -405,23 +361,6 @@ configuration, with credential helpers and hooks disabled; it is never stored
 in repository configuration. Failed/partial acquisition directories must be
 inspected and replaced with a fresh destination rather than reset in place.
 
-
-### Complete local release checks
-
-From the repository root, with the exact approved source checkouts available:
-
-```bash
-python scripts/check_release.py \
-  --pydasc .source-checkouts/pydasc --dasc .source-checkouts/dasc
-```
-
-This runs tests, collection, provenance/physics checks, repeated-collection
-comparison, strict MkDocs build, site/accessibility validation and the complete
-artifact scan. `--skip-tests` is only for reusing a preceding test run of this
-same checkout. Manifest, configuration, docs and site paths are explicit options;
-the docs path must agree with the supplied MkDocs configuration. Source acquisition,
-source-lock changes, PR creation and deployment remain separate operations.
-Untrusted-PR checks still run without access to private sources or credentials.
 
 Browser checks are documented in [the local browser guide](docs/operations/browser-checks.md).
 Full protected CI releases require `--browser-tests`; local Python-only checks

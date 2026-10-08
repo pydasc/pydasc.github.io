@@ -1,6 +1,10 @@
 # Repository TODO
 
-**Reviewed 4 October 2026:** [current documentation/CI record](../docs/operations/document-status.md). Completed work is checked below; recurring maintenance and unverified governance remain open.
+**Current task entry point — 8 October 2026.**
+[Local refactoring results](../docs/operations/refactoring-progress.md) are separate
+from the [historical 4 October remote CI record](../docs/operations/document-status.md).
+No new remote success or deployment is inferred from local commits.
+Recurring maintenance and unverified governance remain open.
 
 This file tracks repository work that is not intended for publication. Complete
 items in priority order; do not weaken the publication boundary to bypass a
@@ -61,9 +65,8 @@ failing check.
   schemes while preserving DASC attribution in generated release records.
 - [x] Replace regex-only raw HTML checks with multiline-aware element and
   attribute parsing, including style and alternate resource attributes.
-- [ ] Refactor the compact formatting in `scripts/validate_docs.py` and
-  `tests/test_docs.py` without changing behavior, then adopt a consistent lint
-  configuration if desired.
+- [x] Refactor compact Python formatting and validator/test responsibilities;
+  pin and check Ruff formatting (WEB-REF-08 through WEB-REF-13).
 - [x] Refresh the pinned documentation dependency baseline and validate it
   with strict MkDocs 1.6.1 checks (record 020).
 - [ ] Evaluate MkDocs 2.0 compatibility before a future major upgrade.
