@@ -53,7 +53,7 @@ def test_docs_check_pins_actions_and_reproduces_local_build() -> None:
         "steps.source-token.outputs.token",
         "http.https://github.com/.extraheader=AUTHORIZATION: basic $auth_header",
         'echo "::add-mask::$auth_header"',
-        "load_manifest(Path(\"docs-manifest.yml\"))",
+        'load_manifest(Path("docs-manifest.yml"))',
         "credential.helper=",
         "core.hooksPath=/dev/null",
         'fetch --quiet --no-tags --depth=1 origin "$content_commit"',
@@ -122,7 +122,9 @@ def test_pages_artifact_is_validated_scanned_and_sha_pinned() -> None:
     assert "scripts/validate_accessibility.py" in text
     assert "scripts/validate_physics_docs.py" in text
     assert "enablement: false" in text
-    assert re.search(r"actions/upload-pages-artifact@[0-9a-f]{40}[^\n]*\n\s+with:\n\s+path: site(?:\n|$)", text)
+    assert re.search(
+        r"actions/upload-pages-artifact@[0-9a-f]{40}[^\n]*\n\s+with:\n\s+path: site(?:\n|$)", text
+    )
     assert "gh-pages" not in text
     assert "personal access token" not in text.casefold()
 
@@ -173,8 +175,11 @@ def test_every_app_credential_consumer_uses_the_source_environment() -> None:
             consumers.add((path.name, job_id))
             assert job["environment"] == "docs-sources"
             assert "github.ref == 'refs/heads/main'" in job["if"]
-            tokens = [step for step in job["steps"]
-                      if step.get("uses", "").startswith("actions/create-github-app-token@")]
+            tokens = [
+                step
+                for step in job["steps"]
+                if step.get("uses", "").startswith("actions/create-github-app-token@")
+            ]
             assert len(tokens) == 1
             assert tokens[0]["with"]["permission-contents"] == "read"
     assert consumers == {
@@ -186,8 +191,15 @@ def test_every_app_credential_consumer_uses_the_source_environment() -> None:
 
 def test_source_environment_guide_requires_server_side_protection() -> None:
     guide = (ROOT / "docs/operations/github_app.md").read_text()
-    for requirement in ("docs-sources", "Required reviewers", "main", "branch",
-                        "repository-level", "organization-level", "cannot retrieve"):
+    for requirement in (
+        "docs-sources",
+        "Required reviewers",
+        "main",
+        "branch",
+        "repository-level",
+        "organization-level",
+        "cannot retrieve",
+    ):
         assert requirement in guide
     assert "Use repository secrets rather than" not in guide
 
@@ -195,8 +207,12 @@ def test_source_environment_guide_requires_server_side_protection() -> None:
 def test_every_release_uses_shared_artifact_scanner():
     for path in (WORKFLOW, DEPLOY_WORKFLOW, UPDATE_WORKFLOW):
         workflow = yaml.load(path.read_text(), Loader=yaml.BaseLoader)
-        scans = [step for job in workflow["jobs"].values() for step in job["steps"]
-                 if step.get("name", "").startswith("Scan ")]
+        scans = [
+            step
+            for job in workflow["jobs"].values()
+            for step in job["steps"]
+            if step.get("name", "").startswith("Scan ")
+        ]
         assert len(scans) == 1
         assert scans[0]["run"] == "python scripts/validate_artifact.py --site site"
         assert "grep -RIE" not in path.read_text()

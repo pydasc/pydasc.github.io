@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Scan every final artifact file without echoing potentially private payloads."""
+
 from __future__ import annotations
 import argparse
 import os

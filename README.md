@@ -389,3 +389,9 @@ and applies the collector's credential/private-content policy to authored output
 too. Diagnostics identify the relative filename and category while redacting the
 matched payload. Imported Markdown retains its separate, stricter resource and
 publication-contract checks.
+
+
+For repository Python formatting, install the pinned `requirements-dev.txt`
+and run `python -m ruff format --check scripts tests`. Apply formatting with
+`python -m ruff format scripts tests`. The formatter configuration is in
+`pyproject.toml`; site builds continue to use `requirements-docs.txt`.

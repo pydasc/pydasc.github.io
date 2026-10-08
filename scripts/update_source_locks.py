@@ -24,8 +24,11 @@ from collect_docs import (
 def _head(checkout: Path) -> str:
     try:
         result = subprocess.run(
-            ["git", "rev-parse", "HEAD"], cwd=checkout, check=True,
-            capture_output=True, text=True,
+            ["git", "rev-parse", "HEAD"],
+            cwd=checkout,
+            check=True,
+            capture_output=True,
+            text=True,
         ).stdout.strip()
     except (OSError, subprocess.CalledProcessError) as exc:
         raise CollectionError(f"cannot inspect candidate checkout: {checkout}") from exc
@@ -36,15 +39,19 @@ def _head(checkout: Path) -> str:
 
 def _lock_nodes(text: str):
     """Locate scalar spans after the authoritative manifest validation."""
+
     def child(node, key):
         return next(value for name, value in node.value if name.value == key)
+
     root = yaml.compose(text, Loader=yaml.SafeLoader)
     sources = child(root, "sources")
     result = {}
     for source in EXPECTED:
         source_node = child(sources, source)
         value = child(source_node, "checkout_commit")
-        if not (source_node.start_mark.index <= value.start_mark.index < source_node.end_mark.index):
+        if not (
+            source_node.start_mark.index <= value.start_mark.index < source_node.end_mark.index
+        ):
             raise CollectionError("aliased checkout locks cannot be edited safely")
         if value.style not in (None, "'", '"'):
             raise CollectionError("checkout lock must be a plain or quoted scalar")
@@ -56,11 +63,11 @@ def _replace_lock(text: str, source: str, commit: str) -> str:
     node = _lock_nodes(text)[source]
     # Anchors/tags are not part of the scalar value; preserve them by refusing
     # ambiguous editing rather than silently changing their dependents.
-    raw = text[node.start_mark.index:node.end_mark.index]
+    raw = text[node.start_mark.index : node.end_mark.index]
     quote = node.style or ""
     if raw != quote + node.value + quote:
         raise CollectionError("checkout lock has unsupported anchors, tags or escapes")
-    return text[:node.start_mark.index] + quote + commit + quote + text[node.end_mark.index:]
+    return text[: node.start_mark.index] + quote + commit + quote + text[node.end_mark.index :]
 
 
 def _replace_manifest(manifest: Path, target: Path, original: bytes, identity, candidate: str):
@@ -71,15 +78,20 @@ def _replace_manifest(manifest: Path, target: Path, original: bytes, identity, c
         raise CollectionError("manifest update already active or interrupted") from exc
     temporary = None
     try:
-        with tempfile.NamedTemporaryFile(dir=target.parent, prefix=".manifest-", delete=False) as stream:
+        with tempfile.NamedTemporaryFile(
+            dir=target.parent, prefix=".manifest-", delete=False
+        ) as stream:
             temporary = Path(stream.name)
             stream.write(candidate.encode("utf-8"))
             stream.flush()
             os.fchmod(stream.fileno(), identity.st_mode & 0o777)
             os.fsync(stream.fileno())
         current = target.lstat()
-        if (manifest.resolve() != target or (current.st_dev, current.st_ino) != (identity.st_dev, identity.st_ino)
-                or _read_regular_file(target, "website manifest") != original):
+        if (
+            manifest.resolve() != target
+            or (current.st_dev, current.st_ino) != (identity.st_dev, identity.st_ino)
+            or _read_regular_file(target, "website manifest") != original
+        ):
             raise CollectionError("website manifest changed during candidate validation")
         os.replace(temporary, target)
     finally:

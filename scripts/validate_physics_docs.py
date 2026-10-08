@@ -59,7 +59,7 @@ def validate(docs: Path) -> None:
         if refs != defs:
             raise ValueError(
                 f"citation-footnote mismatch in {page.name}: "
-                f"missing={sorted(refs-defs)}, unused={sorted(defs-refs)}"
+                f"missing={sorted(refs - defs)}, unused={sorted(defs - refs)}"
             )
     for page, text in texts.items():
         rendered = References()
@@ -72,7 +72,6 @@ def validate(docs: Path) -> None:
             target = page if not parsed.path else (page.parent / unquote(parsed.path)).resolve()
             if not target.is_relative_to(docs) or (target, identifier) not in equations:
                 raise ValueError(f"undefined equation reference in {page.name}: {raw}")
-
 
 
 def main() -> int:

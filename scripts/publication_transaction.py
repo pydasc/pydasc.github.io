@@ -4,6 +4,7 @@ Successful generations replace only named outputs. A directory lock serializes
 writers; an interrupted process leaves its backup/journal for operator recovery.
 Do not delete a retained lock until the previous generation has been restored.
 """
+
 from pathlib import Path
 from typing import Callable
 import json
@@ -15,8 +16,13 @@ class PublicationTransactionError(ValueError):
     pass
 
 
-def publish(output: Path, stage: Path, names: tuple[str, ...],
-            write_inventory: Callable[[], None], preflight: Callable[[], None]) -> None:
+def publish(
+    output: Path,
+    stage: Path,
+    names: tuple[str, ...],
+    write_inventory: Callable[[], None],
+    preflight: Callable[[], None],
+) -> None:
     output.parent.mkdir(parents=True, exist_ok=True)
     lock = output.parent / f".{output.name}.collection-lock"
     try:
@@ -37,9 +43,16 @@ def publish(output: Path, stage: Path, names: tuple[str, ...],
 
     def journal(phase: str) -> None:
         # Write intent before mutation. Only fixed destination names are used.
-        record = {"schema_version": 1, "pid": os.getpid(), "output": str(output),
-                  "phase": phase, "destinations": destinations,
-                  "originals": originals, "moved": moved, "installed": installed}
+        record = {
+            "schema_version": 1,
+            "pid": os.getpid(),
+            "output": str(output),
+            "phase": phase,
+            "destinations": destinations,
+            "originals": originals,
+            "moved": moved,
+            "installed": installed,
+        }
         temporary = lock / "journal.tmp"
         with temporary.open("w") as stream:
             json.dump(record, stream, indent=2)

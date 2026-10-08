@@ -48,7 +48,7 @@ def validate(site: Path, css: Path, base_path: str = "/") -> None:
     if "stylesheets/readthedocs.css" not in home:
         raise ValueError("home page does not load the local presentation stylesheet")
     for marker in (
-        'data-dasc-drawer-control',
+        "data-dasc-drawer-control",
         'aria-controls="__drawer"',
         'aria-label="Open documentation navigation"',
     ):

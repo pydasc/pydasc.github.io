@@ -1,4 +1,5 @@
 """Local rendered-document reference facts; never fetch external resources."""
+
 from html.parser import HTMLParser
 from pathlib import Path
 from urllib.parse import unquote, urlsplit
@@ -64,4 +65,6 @@ class DocumentIndex:
         if parsed.fragment and target.suffix.lower() in {".html", ".htm", ".svg"}:
             identifier = unquote(parsed.fragment, errors="strict")
             if identifier not in self.page(target).ids:
-                raise ValueError(f"undefined local fragment in {page.relative_to(self.site)}: {raw}")
+                raise ValueError(
+                    f"undefined local fragment in {page.relative_to(self.site)}: {raw}"
+                )

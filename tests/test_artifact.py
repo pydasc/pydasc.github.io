@@ -2,12 +2,21 @@ from pathlib import Path
 import sys
 import os
 import pytest
+
 sys.path.insert(0, str(Path(__file__).parents[1] / "scripts"))
 from validate_artifact import validate, main
 
 
 @pytest.mark.parametrize("location", ["index.html", "assets/data.bin", "pydasc/index.html"])
-@pytest.mark.parametrize("payload", ["AKIA" + "A"*16, "github_pat_" + "synthetic", "ghp_" + "synthetic", "https://localhost/private"])
+@pytest.mark.parametrize(
+    "payload",
+    [
+        "AKIA" + "A" * 16,
+        "github_pat_" + "synthetic",
+        "ghp_" + "synthetic",
+        "https://localhost/private",
+    ],
+)
 def test_artifact_scans_all_assets_without_echoing_payload(tmp_path, capsys, location, payload):
     path = tmp_path / location
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -27,7 +36,8 @@ def test_artifact_rejects_unsafe_entries(tmp_path, kind):
     elif kind == "fifo":
         os.mkfifo(path)
     else:
-        with path.open("wb") as stream: stream.truncate(5*1024*1024+1)
+        with path.open("wb") as stream:
+            stream.truncate(5 * 1024 * 1024 + 1)
     with pytest.raises(ValueError, match="artifact"):
         validate(tmp_path)
 

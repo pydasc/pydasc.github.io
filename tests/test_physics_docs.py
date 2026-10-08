@@ -29,16 +29,14 @@ def test_measure_exponent_on_coordinate_fails(tmp_path: Path) -> None:
     page.write_text(
         '# Test\n\n<div id="eq-test" class="dasc-equation" role="group" '
         'aria-label="Invalid measure">\n<math display="block">'
-        '<mi>d</mi><msup><mi>r</mi><mn>3</mn></msup></math>\n</div>\n'
+        "<mi>d</mi><msup><mi>r</mi><mn>3</mn></msup></math>\n</div>\n"
     )
     with pytest.raises(ValueError, match="measure exponent"):
         validate(tmp_path)
 
 
 def test_three_dimensional_measures_use_d_cubed_not_coordinate_cubed() -> None:
-    physics = "\n".join(
-        page.read_text() for page in sorted((ROOT / "docs").glob("dasc-*.md"))
-    )
+    physics = "\n".join(page.read_text() for page in sorted((ROOT / "docs").glob("dasc-*.md")))
     assert "<mrow><mi>d</mi><mi>V</mi></mrow>" in physics
     assert '<mrow><msup><mi>d</mi><mn>3</mn></msup><mi mathvariant="bold">r</mi></mrow>' in physics
     assert '<mrow><msup><mi>d</mi><mn>3</mn></msup><mi mathvariant="bold">k</mi></mrow>' in physics
@@ -172,9 +170,7 @@ def test_validation_matrix_evidence_links_are_complete_and_immutable() -> None:
     matrix = (ROOT / "docs/dasc-validation-matrix.md").read_text()
     sha = "0506b8a9feb75813ae979f0c1c25a307b21096d2"
     urls = re.findall(
-        r"https://github\.com/pydasc/pydasc/(?:blob|tree)/"
-        + sha
-        + r"/[^)]+",
+        r"https://github\.com/pydasc/pydasc/(?:blob|tree)/" + sha + r"/[^)]+",
         matrix,
     )
 
@@ -182,9 +178,7 @@ def test_validation_matrix_evidence_links_are_complete_and_immutable() -> None:
     assert "/main/" not in matrix
     assert "/master/" not in matrix
     for path in re.findall(r"`([^`]+\.py)`", matrix):
-        expected = (
-            f"[`{path}`](https://github.com/pydasc/pydasc/blob/{sha}/{path})"
-        )
+        expected = f"[`{path}`](https://github.com/pydasc/pydasc/blob/{sha}/{path})"
         assert expected in matrix
 
 
@@ -197,6 +191,7 @@ def test_reader_facing_physics_pages_do_not_reference_completed_tasks() -> None:
 
 def test_missing_same_page_equation_is_rejected(tmp_path):
     from validate_physics_docs import validate
+
     (tmp_path / "dasc-example.md").write_text("# Example\n[Missing](#eq-missing)\n")
     with pytest.raises(ValueError, match="undefined equation reference"):
         validate(tmp_path)
@@ -204,5 +199,6 @@ def test_missing_same_page_equation_is_rejected(tmp_path):
 
 def test_equation_link_in_code_is_not_a_live_reference(tmp_path):
     from validate_physics_docs import validate
+
     (tmp_path / "dasc-example.md").write_text("# Example\n```text\n[Missing](#eq-missing)\n```\n")
     validate(tmp_path)

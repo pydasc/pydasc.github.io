@@ -7,6 +7,7 @@ import pytest
 import yaml
 
 import sys
+
 sys.path.insert(0, str(Path(__file__).parents[1] / "scripts"))
 from validate_accessibility import validate as validate_accessibility
 from validate_site import validate as validate_site
@@ -17,12 +18,15 @@ ROOT = Path(__file__).parents[1]
 CSS = ROOT / "docs/stylesheets/readthedocs.css"
 
 
-@pytest.mark.parametrize("html", [
-    '<a href="javascript:alert(1)" href="https://example.com/">Link</a>',
-    '<a href="https://example.com/" HREF="javascript:alert(1)">Link</a>',
-    '<img src="data:text/html,active" SRC="approved.png" />',
-    '<a href="https://example.com/" href="https://example.com/">Link</a>',
-])
+@pytest.mark.parametrize(
+    "html",
+    [
+        '<a href="javascript:alert(1)" href="https://example.com/">Link</a>',
+        '<a href="https://example.com/" HREF="javascript:alert(1)">Link</a>',
+        '<img src="data:text/html,active" SRC="approved.png" />',
+        '<a href="https://example.com/" href="https://example.com/">Link</a>',
+    ],
+)
 def test_site_validation_rejects_duplicate_attributes(tmp_path: Path, html: str) -> None:
     (tmp_path / "index.html").write_text(html, encoding="utf-8")
     with pytest.raises(ValueError, match="duplicate HTML attribute"):
@@ -120,7 +124,7 @@ def test_built_site_passes_semantic_accessibility_audit(tmp_path: Path) -> None:
         '<body><nav aria-label="Primary"></nav><main><h1>Page</h1>'
         '<h2>Section</h2><div class="dasc-table-scroll" role="region" '
         'tabindex="0" aria-label="Scrollable table: Values">'
-        '<table><tr><th>Value</th></tr></table></div>'
+        "<table><tr><th>Value</th></tr></table></div>"
         '<img src="example.png" alt="Example"></main></body></html>',
         encoding="utf-8",
     )
@@ -148,7 +152,7 @@ def test_accessibility_audit_rejects_unwrapped_table(tmp_path: Path) -> None:
     page.write_text(
         '<!doctype html><html lang="en"><head><title>Page</title></head>'
         '<body><nav aria-label="Primary"></nav><main><h1>Page</h1>'
-        '<table><tr><th>Value</th></tr></table></main></body></html>',
+        "<table><tr><th>Value</th></tr></table></main></body></html>",
         encoding="utf-8",
     )
 
@@ -156,7 +160,9 @@ def test_accessibility_audit_rejects_unwrapped_table(tmp_path: Path) -> None:
         validate_accessibility(tmp_path)
 
 
-@pytest.mark.parametrize("url", ["javascript:alert(1)", "data:text/html,active", "file:///tmp/private"])
+@pytest.mark.parametrize(
+    "url", ["javascript:alert(1)", "data:text/html,active", "file:///tmp/private"]
+)
 def test_site_validation_rejects_unsafe_url_schemes(tmp_path: Path, url: str) -> None:
     (tmp_path / "index.html").write_text(
         f'<html><body><a href="{url}">unsafe</a></body></html>',
@@ -188,57 +194,78 @@ def test_site_validation_resolves_root_relative_links_from_site_root(tmp_path: P
     validate_site(tmp_path, CSS)
 
 
-@pytest.mark.parametrize(("url", "expected"), [
-    ("", "portal"), ("pydasc/", "pydasc"),
-    ("pydasc/reference/conventions/", "pydasc"), ("pydasc-other/", "portal"),
-    ("dasc/", "dasc"), ("dasc-tgf-method/", "dasc"),
-])
+@pytest.mark.parametrize(
+    ("url", "expected"),
+    [
+        ("", "portal"),
+        ("pydasc/", "pydasc"),
+        ("pydasc/reference/conventions/", "pydasc"),
+        ("pydasc-other/", "portal"),
+        ("dasc/", "dasc"),
+        ("dasc-tgf-method/", "dasc"),
+    ],
+)
 def test_footer_project_group_boundaries(url, expected):
     from jinja2 import Environment
+
     source = (ROOT / "docs/overrides/partials/footer.html").read_text()
     # Extract the actual macro; the rest of the template needs page/theme context.
-    macro = source[:source.index("{%- endmacro %}") + len("{%- endmacro %}")]
+    macro = source[: source.index("{%- endmacro %}") + len("{%- endmacro %}")]
     assert Environment().from_string(macro).module.project_group(url) == expected
 
 
-@pytest.mark.parametrize(("current", "neighbor", "visible"), [
-    ("pydasc/", "pydasc/reference/conventions/", True),
-    ("pydasc/reference/conventions/", "pydasc/", True),
-    ("pydasc/reference/conventions/", "contributing/", False),
-    ("dasc-tgf-method/", "dasc/", True),
-    ("dasc/", "pydasc/", False),
-])
+@pytest.mark.parametrize(
+    ("current", "neighbor", "visible"),
+    [
+        ("pydasc/", "pydasc/reference/conventions/", True),
+        ("pydasc/reference/conventions/", "pydasc/", True),
+        ("pydasc/reference/conventions/", "contributing/", False),
+        ("dasc-tgf-method/", "dasc/", True),
+        ("dasc/", "pydasc/", False),
+    ],
+)
 def test_footer_renders_only_same_project_neighbors(current, neighbor, visible):
     from jinja2 import DictLoader, Environment
     from types import SimpleNamespace
+
     source = (ROOT / "docs/overrides/partials/footer.html").read_text()
-    env = Environment(loader=DictLoader({
-        "footer": source, ".icons/material/arrow-left.svg": "",
-        ".icons/material/arrow-right.svg": "", "partials/copyright.html": "",
-    }))
+    env = Environment(
+        loader=DictLoader(
+            {
+                "footer": source,
+                ".icons/material/arrow-left.svg": "",
+                ".icons/material/arrow-right.svg": "",
+                "partials/copyright.html": "",
+            }
+        )
+    )
     env.filters["url"] = lambda url: url
     other = SimpleNamespace(url=neighbor, title="Neighbor")
     html = env.get_template("footer").render(
         page=SimpleNamespace(url=current, previous_page=other, next_page=other),
-        features=["navigation.footer"], lang=SimpleNamespace(t=lambda s:s),
-        config={"theme":{"icon":{}},"extra":{}},
+        features=["navigation.footer"],
+        lang=SimpleNamespace(t=lambda s: s),
+        config={"theme": {"icon": {}}, "extra": {}},
     )
     assert (f'href="{neighbor}"' in html) is visible
 
 
-@pytest.mark.parametrize("content", [
-    '<nav aria-label="Main"></nav><nav></nav>',
-    '<nav aria-labelledby="missing"></nav>',
-    '<span id="name"> </span><nav aria-labelledby="name"></nav>',
-    '<nav aria-label=" "></nav>',
-    '<nav aria-label="Main" ARIA-LABEL="Other"></nav>',
-    '<nav aria-label="Main"></nav><div class="dasc-table-scroll" role="region" tabindex="0" aria-label="Tables"><table><tr><th>A</th></tr></table><table><tr><td>B</td></tr></table></div>',
-    '<nav aria-label="Main"></nav><div class="dasc-table-scroll" role="region" tabindex="0" aria-label="Tables"><table><tr><td><table><tr><th>Nested</th></tr></table></td></tr></table></div>',
-])
+@pytest.mark.parametrize(
+    "content",
+    [
+        '<nav aria-label="Main"></nav><nav></nav>',
+        '<nav aria-labelledby="missing"></nav>',
+        '<span id="name"> </span><nav aria-labelledby="name"></nav>',
+        '<nav aria-label=" "></nav>',
+        '<nav aria-label="Main" ARIA-LABEL="Other"></nav>',
+        '<nav aria-label="Main"></nav><div class="dasc-table-scroll" role="region" tabindex="0" aria-label="Tables"><table><tr><th>A</th></tr></table><table><tr><td>B</td></tr></table></div>',
+        '<nav aria-label="Main"></nav><div class="dasc-table-scroll" role="region" tabindex="0" aria-label="Tables"><table><tr><td><table><tr><th>Nested</th></tr></table></td></tr></table></div>',
+    ],
+)
 def test_accessibility_checks_each_element(tmp_path, content):
     (tmp_path / "index.html").write_text(
         '<html lang="en"><head><title>Page</title></head><body>'
-        '<main><h1>Page</h1>' + content + '</main></body></html>'
+        "<main><h1>Page</h1>" + content + "</main></body></html>"
     )
     with pytest.raises(ValueError):
         validate_accessibility(tmp_path)
@@ -265,20 +292,22 @@ def test_accessibility_rejects_empty_title(tmp_path):
 def test_material_navigation_uses_text_bearing_label():
     from jinja2 import DictLoader, Environment
     from mkdocs_hooks import on_env
+
     source = '<nav aria-labelledby="{{ path }}_label"><label class="md-nav__title" for="{{ path }}">Project</label></nav>'
-    env = Environment(loader=DictLoader({"partials/nav-item.html":source}))
+    env = Environment(loader=DictLoader({"partials/nav-item.html": source}))
     on_env(env)
     on_env(env)
     rendered = env.get_template("partials/nav-item.html").render(path="section")
     assert 'aria-labelledby="section_title"' in rendered
     assert 'id="section_title">Project' in rendered
     with pytest.raises(ValueError, match="template changed"):
-        on_env(Environment(loader=DictLoader({"partials/nav-item.html":"changed theme"})))
+        on_env(Environment(loader=DictLoader({"partials/nav-item.html": "changed theme"})))
 
 
 @pytest.mark.parametrize("reference", ["#missing", "other/#missing", "other/#%6dissing"])
 def test_document_index_rejects_missing_fragments(tmp_path, reference):
     from html_references import DocumentIndex
+
     (tmp_path / "index.html").write_text('<h1 id="home">Home</h1>')
     (tmp_path / "other").mkdir()
     (tmp_path / "other/index.html").write_text('<h1 id="target">Other</h1>')
@@ -288,6 +317,7 @@ def test_document_index_rejects_missing_fragments(tmp_path, reference):
 
 def test_document_index_resolves_fragments_base_and_queries(tmp_path):
     from html_references import DocumentIndex
+
     page = tmp_path / "index.html"
     page.write_text('<h1 id="target">Home</h1><a name="legacy"></a>')
     index = DocumentIndex(tmp_path, "/preview/")

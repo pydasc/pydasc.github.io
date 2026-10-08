@@ -1,4 +1,5 @@
 """Adversarial coverage of file and schema boundaries, independent of Markdown."""
+
 from __future__ import annotations
 
 import copy
@@ -109,9 +110,21 @@ def test_manifest_cli_rejects_special_files_without_hanging(tmp_path, target, ki
     special_entry(path, kind)
     output = tmp_path / "out"
     result = subprocess.run(
-        [sys.executable, str(Path(collector.__file__)), "--manifest", str(manifest),
-         "--output", str(output), "--pydasc", str(pydasc), "--dasc", str(dasc)],
-        capture_output=True, text=True, timeout=10,
+        [
+            sys.executable,
+            str(Path(collector.__file__)),
+            "--manifest",
+            str(manifest),
+            "--output",
+            str(output),
+            "--pydasc",
+            str(pydasc),
+            "--dasc",
+            str(dasc),
+        ],
+        capture_output=True,
+        text=True,
+        timeout=10,
     )
     assert result.returncode == 1
     assert "regular file" in result.stderr
@@ -161,18 +174,30 @@ def test_contract_wrong_field_types_are_controlled(approved_sources, value):
         path = checkout / "docs/publication-manifest.json"
         original = json.loads(path.read_bytes())
         fields = [
-            ("schema_version",), ("project",), ("repository",), ("source_commit",),
-            ("files",), ("files", 0), ("files", 0, "source"), ("files", 0, "destination"),
-            ("files", 0, "media_type"), ("files", 0, "documentation_status"),
+            ("schema_version",),
+            ("project",),
+            ("repository",),
+            ("source_commit",),
+            ("files",),
+            ("files", 0),
+            ("files", 0, "source"),
+            ("files", 0, "destination"),
+            ("files", 0, "media_type"),
+            ("files", 0, "documentation_status"),
             ("files", 0, "documentation_status", "label"),
             ("files", 0, "documentation_status", "evidence"),
-            ("files", 0, "redistribution"), ("files", 0, "redistribution", "spdx_license"),
+            ("files", 0, "redistribution"),
+            ("files", 0, "redistribution", "spdx_license"),
             ("files", 0, "redistribution", "license_file"),
         ]
         if checkout == dasc:
-            fields += [("publication_decision",), ("publication_decision", "state"),
-                       ("publication_decision", "reason"), ("publication_decision", "evidence"),
-                       ("files", 0, "redistribution", "attribution")]
+            fields += [
+                ("publication_decision",),
+                ("publication_decision", "state"),
+                ("publication_decision", "reason"),
+                ("publication_decision", "evidence"),
+                ("files", 0, "redistribution", "attribution"),
+            ]
         for field in fields:
             # schema 1 and an empty list of upstream offers are valid values.
             if field == ("schema_version",) and type(value) is int and value == 1:
@@ -185,8 +210,13 @@ def test_contract_wrong_field_types_are_controlled(approved_sources, value):
                 parent = parent[key]
             parent[field[-1]] = value
             with pytest.raises(collector.CollectionError):
-                collector._source_contract(path, checkout.name, collector.EXPECTED[checkout.name],
-                                           git(checkout, "rev-parse", "HEAD"), json.dumps(contract).encode())
+                collector._source_contract(
+                    path,
+                    checkout.name,
+                    collector.EXPECTED[checkout.name],
+                    git(checkout, "rev-parse", "HEAD"),
+                    json.dumps(contract).encode(),
+                )
 
 
 @pytest.mark.parametrize("value", [None, [], {}, True, 1, 2.0, ""])
@@ -194,8 +224,10 @@ def test_website_wrong_field_types_are_controlled(tmp_path, approved_sources, va
     manifest, _, _ = approved_sources
     original = yaml.safe_load(manifest.read_text())
     fields = [("schema_version",), ("sources",), ("sources", "pydasc")]
-    fields += [("sources", "pydasc", key) for key in
-               ("repository", "checkout_commit", "publication_manifest", "files")]
+    fields += [
+        ("sources", "pydasc", key)
+        for key in ("repository", "checkout_commit", "publication_manifest", "files")
+    ]
     fields += [("sources", "pydasc", "files", 0, key) for key in ("source", "destination")]
     for field in fields:
         data = copy.deepcopy(original)
@@ -209,11 +241,14 @@ def test_website_wrong_field_types_are_controlled(tmp_path, approved_sources, va
             collector.load_manifest(path)
 
 
-@pytest.mark.parametrize("text", [
-    "schema_version: 2\nschema_version: 2\nsources: {}\n",
-    "schema_version: 2\nsources: {}\nnull: 1\n3: 2\n",
-    "schema_version: 2\nsources: {pydasc: {}, pydasc: {}}\n",
-])
+@pytest.mark.parametrize(
+    "text",
+    [
+        "schema_version: 2\nschema_version: 2\nsources: {}\n",
+        "schema_version: 2\nsources: {}\nnull: 1\n3: 2\n",
+        "schema_version: 2\nsources: {pydasc: {}, pydasc: {}}\n",
+    ],
+)
 def test_yaml_duplicate_and_non_string_keys_are_rejected(tmp_path, text):
     path = tmp_path / "manifest.yml"
     path.write_text(text)
@@ -226,11 +261,14 @@ def test_mixed_unknown_keys_do_not_crash_error_reporting():
         collector._mapping({None: 1, 2: 1, "unknown": 1}, {"schema_version"}, "test")
 
 
-@pytest.mark.parametrize("text", [
-    pytest.param(b'{"files":[],"files":[]}', id="duplicate-top-level-key"),
-    pytest.param(b'{"file":{"source":1,"source":2}}', id="duplicate-nested-key"),
-    pytest.param(b'[' * 2000, id="excessive-nesting"),
-])
+@pytest.mark.parametrize(
+    "text",
+    [
+        pytest.param(b'{"files":[],"files":[]}', id="duplicate-top-level-key"),
+        pytest.param(b'{"file":{"source":1,"source":2}}', id="duplicate-nested-key"),
+        pytest.param(b"[" * 2000, id="excessive-nesting"),
+    ],
+)
 def test_invalid_json_is_controlled(text):
     with pytest.raises(collector.CollectionError):
         collector._read_json(text, "test manifest")
@@ -263,12 +301,16 @@ def test_inventory_duplicate_keys_are_rejected(tmp_path, approved_sources):
     output = tmp_path / "out"
     collector.assemble(manifest, output, pydasc, dasc)
     path = output / "generated-inventory.json"
-    path.write_text(path.read_text().replace('"schema_version": 1', '"schema_version": 1, "schema_version": 1'))
+    path.write_text(
+        path.read_text().replace('"schema_version": 1', '"schema_version": 1, "schema_version": 1')
+    )
     with pytest.raises(collector.CollectionError, match="duplicate JSON key"):
         validator.validate(manifest, output)
 
 
-@pytest.mark.parametrize("field,value", [("destination", "."), ("destination", "././"), ("source", ".")])
+@pytest.mark.parametrize(
+    "field,value", [("destination", "."), ("destination", "././"), ("source", ".")]
+)
 def test_bad_path_cli_has_no_traceback(tmp_path, approved_sources, field, value):
     source_manifest, pydasc, dasc = approved_sources
     data = yaml.safe_load(source_manifest.read_text())
@@ -276,9 +318,21 @@ def test_bad_path_cli_has_no_traceback(tmp_path, approved_sources, field, value)
     manifest = tmp_path / "manifest.yml"
     manifest.write_text(yaml.safe_dump(data))
     result = subprocess.run(
-        [sys.executable, str(Path(collector.__file__)), "--manifest", str(manifest),
-         "--output", str(tmp_path / "out"), "--pydasc", str(pydasc), "--dasc", str(dasc)],
-        capture_output=True, text=True, timeout=10,
+        [
+            sys.executable,
+            str(Path(collector.__file__)),
+            "--manifest",
+            str(manifest),
+            "--output",
+            str(tmp_path / "out"),
+            "--pydasc",
+            str(pydasc),
+            "--dasc",
+            str(dasc),
+        ],
+        capture_output=True,
+        text=True,
+        timeout=10,
     )
     assert result.returncode == 1
     assert "error:" in result.stderr

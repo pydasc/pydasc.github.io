@@ -37,8 +37,22 @@ class PageAudit(HTMLParser):
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         values = unique_attributes(attrs)
-        void = {"area", "base", "br", "col", "embed", "hr", "img", "input",
-                "link", "meta", "param", "source", "track", "wbr"}
+        void = {
+            "area",
+            "base",
+            "br",
+            "col",
+            "embed",
+            "hr",
+            "img",
+            "input",
+            "link",
+            "meta",
+            "param",
+            "source",
+            "track",
+            "wbr",
+        }
         if tag not in void:
             self.element_stack.append((tag, values.get("id")))
         identifier = values.get("id")
@@ -133,7 +147,9 @@ def validate(site: Path) -> None:
             failures.append("missing main landmark")
         if audit.h1_count != 1:
             failures.append(f"expected one h1, found {audit.h1_count}")
-        if any(current > previous + 1 for previous, current in zip(audit.headings, audit.headings[1:])):
+        if any(
+            current > previous + 1 for previous, current in zip(audit.headings, audit.headings[1:])
+        ):
             failures.append("heading level is skipped")
         if audit.images_without_alt:
             failures.append(f"{audit.images_without_alt} image(s) lack alt attributes")

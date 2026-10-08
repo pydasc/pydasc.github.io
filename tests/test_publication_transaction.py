@@ -1,6 +1,7 @@
 from pathlib import Path
 import sys
 import pytest
+
 sys.path.insert(0, str(Path(__file__).parents[1] / "scripts"))
 import publication_transaction as transaction
 
@@ -27,6 +28,7 @@ def test_transaction_failure_restores_previous_generation(tmp_path, monkeypatch,
     replace = transaction.os.replace
     copy = transaction.shutil.copytree
     fired = False
+
     def fail_replace(src, dst):
         nonlocal fired
         phase = "backup" if Path(dst).parent.name == "previous" else "install"
@@ -34,14 +36,17 @@ def test_transaction_failure_restores_previous_generation(tmp_path, monkeypatch,
             fired = True
             raise OSError("injected replacement failure")
         return replace(src, dst)
+
     def fail_copy(src, dst, *args, **kwargs):
         if failure == "prepare" and Path(src).name == "dasc":
             raise OSError("injected preparation failure")
         return copy(src, dst, *args, **kwargs)
+
     def write_inventory():
         (output / "generated-inventory.json").write_text("new inventory")
         if failure == "inventory":
             raise OSError("injected inventory failure")
+
     monkeypatch.setattr(transaction.os, "replace", fail_replace)
     monkeypatch.setattr(transaction.shutil, "copytree", fail_copy)
     with pytest.raises(OSError, match="injected"):
@@ -52,11 +57,20 @@ def test_transaction_failure_restores_previous_generation(tmp_path, monkeypatch,
 
 def test_transaction_rejects_a_concurrent_writer(tmp_path):
     output, stage = setup(tmp_path)
+
     def while_locked():
-        with pytest.raises(transaction.PublicationTransactionError, match="active or needs recovery"):
-            transaction.publish(output, stage, ("pydasc", "dasc"), lambda:None, lambda:None)
-    transaction.publish(output, stage, ("pydasc", "dasc"),
-                        lambda:(output / "generated-inventory.json").write_text("new inventory"), while_locked)
+        with pytest.raises(
+            transaction.PublicationTransactionError, match="active or needs recovery"
+        ):
+            transaction.publish(output, stage, ("pydasc", "dasc"), lambda: None, lambda: None)
+
+    transaction.publish(
+        output,
+        stage,
+        ("pydasc", "dasc"),
+        lambda: (output / "generated-inventory.json").write_text("new inventory"),
+        while_locked,
+    )
     assert (output / "pydasc/index.md").read_text() == "new"
     assert (output / "dasc/index.md").read_text() == "new"
     assert (output / "authored.md").read_text() == "authored"
@@ -65,8 +79,10 @@ def test_transaction_rejects_a_concurrent_writer(tmp_path):
 def test_preflight_failure_does_not_change_output(tmp_path):
     output, stage = setup(tmp_path)
     before = snapshot(output)
+
     def reject():
         raise ValueError("unsafe output")
+
     with pytest.raises(ValueError, match="unsafe output"):
-        transaction.publish(output, stage, ("pydasc", "dasc"), lambda:None, reject)
+        transaction.publish(output, stage, ("pydasc", "dasc"), lambda: None, reject)
     assert snapshot(output) == before

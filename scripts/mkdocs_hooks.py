@@ -42,8 +42,7 @@ def on_env(env: Any, **_: Any) -> Any:
     source, _, _ = env.loader.get_source(env, name)
     replacements = {
         'aria-labelledby="{{ path }}_label"': 'aria-labelledby="{{ path }}_title"',
-        '<label class="md-nav__title" for="{{ path }}">':
-            '<label class="md-nav__title" for="{{ path }}" id="{{ path }}_title">',
+        '<label class="md-nav__title" for="{{ path }}">': '<label class="md-nav__title" for="{{ path }}" id="{{ path }}_title">',
     }
     for before, after in replacements.items():
         if source.count(before) != 1:

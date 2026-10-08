@@ -40,32 +40,78 @@ LEGACY_CONTRACT_REPOSITORIES = {
     "dasc": "https://github.com/chongshikpark/dasc",
 }
 ALLOWED = {".md", ".png", ".jpg", ".jpeg", ".webp"}
-MEDIA = {".md": "text/markdown", ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".webp": "image/webp"}
+MEDIA = {
+    ".md": "text/markdown",
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".webp": "image/webp",
+}
 MAX_FILE_BYTES = 5 * 1024 * 1024
 SHA_RE = re.compile(r"^[0-9a-f]{40}$")
 SPDX_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9.+-]*$")
 DOCUMENTATION_STATUSES = {
-    "Draft", "Reviewed", "Reference", "Validated", "Unvalidated",
-    "Superseded", "Released",
+    "Draft",
+    "Reviewed",
+    "Reference",
+    "Validated",
+    "Unvalidated",
+    "Superseded",
+    "Released",
 }
-MARKDOWN_AUTOLINK_RE = re.compile(
-    r"<(?:https?://[^<>\s]+|[^<>\s@]+@[^<>\s@]+)>"
-)
+MARKDOWN_AUTOLINK_RE = re.compile(r"<(?:https?://[^<>\s]+|[^<>\s@]+@[^<>\s@]+)>")
 BLOCKQUOTE_PREFIX_RE = re.compile(r"^ {0,3}>[ \t]?")
 LIST_PREFIX_RE = re.compile(r"^ {0,3}(?:[-+*]|\d+[.)])[ \t]+")
 HTML_TAG_START_RE = re.compile(r"<\s*/?\s*[A-Za-z][A-Za-z0-9-]*")
 ACTIVE_HTML_TAGS = {
-    "a", "audio", "base", "button", "canvas", "embed", "form", "iframe",
-    "img", "input", "link", "meta", "object", "option", "script", "select",
-    "source", "style", "svg", "textarea", "track", "video",
+    "a",
+    "audio",
+    "base",
+    "button",
+    "canvas",
+    "embed",
+    "form",
+    "iframe",
+    "img",
+    "input",
+    "link",
+    "meta",
+    "object",
+    "option",
+    "script",
+    "select",
+    "source",
+    "style",
+    "svg",
+    "textarea",
+    "track",
+    "video",
 }
 UNSAFE_HTML_ATTRIBUTES = {
-    "action", "archive", "background", "cite", "classid", "codebase", "data",
-    "formaction", "href", "longdesc", "manifest", "ping", "poster", "profile",
-    "src", "srcset", "style", "usemap", "xlink:href",
+    "action",
+    "archive",
+    "background",
+    "cite",
+    "classid",
+    "codebase",
+    "data",
+    "formaction",
+    "href",
+    "longdesc",
+    "manifest",
+    "ping",
+    "poster",
+    "profile",
+    "src",
+    "srcset",
+    "style",
+    "usemap",
+    "xlink:href",
 }
 UNSAFE_ATTRIBUTION_RE = re.compile(r"(?:[\x00-\x1f<>\[\]]|--)")
-FORBIDDEN = re.compile(r"(?:-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----|github_pat_[A-Za-z0-9_]+|ghp_[A-Za-z0-9]+|AKIA[0-9A-Z]{16}|/(?:Users|home)/[^\s)`]+|https?://(?:localhost|127\.0\.0\.1|[^/\s]+\.internal)(?:[/\s)]|$))")
+FORBIDDEN = re.compile(
+    r"(?:-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----|github_pat_[A-Za-z0-9_]+|ghp_[A-Za-z0-9]+|AKIA[0-9A-Z]{16}|/(?:Users|home)/[^\s)`]+|https?://(?:localhost|127\.0\.0\.1|[^/\s]+\.internal)(?:[/\s)]|$))"
+)
 MARKDOWN_POLICY_EXTENSIONS = [
     "admonition",
     "attr_list",
@@ -97,9 +143,7 @@ class MarkdownHTMLGuard(HTMLParser):
     def _reject(self) -> None:
         raise CollectionError(f"active raw HTML is not allowed: {self.source}")
 
-    def handle_starttag(
-        self, tag: str, attrs: list[tuple[str, str | None]]
-    ) -> None:
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         raw = self.get_starttag_text() or ""
         if MARKDOWN_AUTOLINK_RE.fullmatch(raw):
             return
@@ -110,9 +154,7 @@ class MarkdownHTMLGuard(HTMLParser):
             if folded.startswith("on") or folded in UNSAFE_HTML_ATTRIBUTES:
                 self._reject()
 
-    def handle_startendtag(
-        self, tag: str, attrs: list[tuple[str, str | None]]
-    ) -> None:
+    def handle_startendtag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         self.handle_starttag(tag, attrs)
 
     def handle_pi(self, data: str) -> None:
@@ -127,9 +169,7 @@ class RenderedReferenceParser(HTMLParser):
         super().__init__(convert_charrefs=True)
         self.references: list[tuple[str, str]] = []
 
-    def handle_starttag(
-        self, tag: str, attrs: list[tuple[str, str | None]]
-    ) -> None:
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         try:
             values = unique_attributes(attrs)
         except ValueError as exc:
@@ -177,14 +217,10 @@ class RenderedHTMLGuard(HTMLParser):
             if values.get(name) is not None:
                 _validate_rendered_url(values[name] or "", self.source, folded_tag == "img")
 
-    def handle_starttag(
-        self, tag: str, attrs: list[tuple[str, str | None]]
-    ) -> None:
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         self._check(tag, attrs)
 
-    def handle_startendtag(
-        self, tag: str, attrs: list[tuple[str, str | None]]
-    ) -> None:
+    def handle_startendtag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         self._check(tag, attrs)
 
 
@@ -205,7 +241,7 @@ def _validate_markdown_html(text: str, source: PurePosixPath) -> None:
                 elif character in "\"'":
                     quote = character
                 elif character == ">":
-                    MarkdownHTMLGuard(source).feed(text[match.start():cursor + 1])
+                    MarkdownHTMLGuard(source).feed(text[match.start() : cursor + 1])
                     position = cursor + 1
                     break
                 elif character == "<":
@@ -244,7 +280,9 @@ class MarkdownLink:
 def _mapping(value: object, keys: set[str], context: str) -> dict[str, Any]:
     if not isinstance(value, dict) or set(value) != keys:
         actual = set(value) if isinstance(value, dict) else set()
-        raise CollectionError(f"{context} keys invalid (missing={sorted(keys-actual)}, unknown={sorted(map(repr, actual-keys))})")
+        raise CollectionError(
+            f"{context} keys invalid (missing={sorted(keys - actual)}, unknown={sorted(map(repr, actual - keys))})"
+        )
     return value
 
 
@@ -254,11 +292,16 @@ def _path(value: object, context: str) -> PurePosixPath:
         or not value
         or "\\" in value
         or "`" in value
-        or any(ord(character) < 0x20 or ord(character) == 0x7f for character in value)
+        or any(ord(character) < 0x20 or ord(character) == 0x7F for character in value)
     ):
         raise CollectionError(f"{context} must be a non-empty POSIX path")
     result = PurePosixPath(value)
-    if not result.parts or result.is_absolute() or any(part in {"", ".", ".."} for part in result.parts) or any(c in value for c in "*?["):
+    if (
+        not result.parts
+        or result.is_absolute()
+        or any(part in {"", ".", ".."} for part in result.parts)
+        or any(c in value for c in "*?[")
+    ):
         raise CollectionError(f"unsafe {context}: {value!r}")
     return result
 
@@ -347,7 +390,9 @@ def _read_yaml(path: Path) -> dict[str, Any]:
 
 def _git(repo: Path, *args: str, binary: bool = False) -> str | bytes:
     try:
-        result = subprocess.run(["git", *args], cwd=repo, check=True, capture_output=True, text=not binary)
+        result = subprocess.run(
+            ["git", *args], cwd=repo, check=True, capture_output=True, text=not binary
+        )
     except (OSError, ValueError, subprocess.CalledProcessError) as exc:
         raise CollectionError(f"git inspection failed in {repo.name}") from exc
     return result.stdout
@@ -361,7 +406,9 @@ def _decode_link_path(raw: str, source: PurePosixPath) -> PurePosixPath:
         decoded = unquote_to_bytes(raw).decode("utf-8")
     except UnicodeDecodeError as exc:
         raise CollectionError(f"link path is not valid UTF-8: {raw!r}") from exc
-    if "\\" in decoded or any(ord(character) < 0x20 or ord(character) == 0x7f for character in decoded):
+    if "\\" in decoded or any(
+        ord(character) < 0x20 or ord(character) == 0x7F for character in decoded
+    ):
         raise CollectionError(f"unsafe link path {raw!r} in {source}")
     return PurePosixPath(decoded)
 
@@ -376,7 +423,7 @@ def _split_link(raw: str, source: PurePosixPath) -> SplitResult:
 
 def _validate_rendered_url(raw: str, source: PurePosixPath, image: bool) -> None:
     """Check actual DOM destinations even when source matching finds no link."""
-    if "\\" in raw or any(ord(c) < 0x20 or ord(c) == 0x7f for c in raw):
+    if "\\" in raw or any(ord(c) < 0x20 or ord(c) == 0x7F for c in raw):
         raise CollectionError(f"unsafe rendered URL in {source}: {raw!r}")
     parsed = _split_link(raw, source)
     if parsed.scheme not in {"", "http", "https", "mailto"} or (
@@ -400,7 +447,7 @@ def _markdown_visible_text(text: str) -> str:
         content = line
         quote_depth = 0
         while quote := BLOCKQUOTE_PREFIX_RE.match(content):
-            content = content[quote.end():]
+            content = content[quote.end() :]
             quote_depth += 1
         marker_content = content
         list_indent = 0
@@ -413,13 +460,13 @@ def _markdown_visible_text(text: str) -> str:
             marker_content = marker_content[list_indent:]
         marker = re.match(r"^ {0,3}(`{3,}|~{3,})", marker_content)
         if fenced:
-            masked[offset:offset + len(line)] = " " * len(line)
+            masked[offset : offset + len(line)] = " " * len(line)
             if (
                 marker
                 and quote_depth == fence_quote_depth
                 and marker.group(1)[0] == fence_character
                 and len(marker.group(1)) >= fence_length
-                and not marker_content[marker.end():].strip()
+                and not marker_content[marker.end() :].strip()
             ):
                 fenced = False
         elif marker:
@@ -428,9 +475,9 @@ def _markdown_visible_text(text: str) -> str:
             fence_length = len(marker.group(1))
             fence_quote_depth = quote_depth
             fence_list_indent = list_indent
-            masked[offset:offset + len(line)] = " " * len(line)
+            masked[offset : offset + len(line)] = " " * len(line)
         elif content.startswith(("    ", "\t")):
-            masked[offset:offset + len(line)] = " " * len(line)
+            masked[offset : offset + len(line)] = " " * len(line)
         offset += len(line)
 
     scan = "".join(masked)
@@ -459,7 +506,7 @@ def _markdown_visible_text(text: str) -> str:
                     break
                 closing = after
             if closing >= 0:
-                masked[index:closing + len(delimiter)] = " " * (closing + len(delimiter) - index)
+                masked[index : closing + len(delimiter)] = " " * (closing + len(delimiter) - index)
                 index = closing + len(delimiter)
                 continue
         index += 1
@@ -546,7 +593,7 @@ def _markdown_link_matches(
         destination = text[destination_start:destination_end]
         links.append(
             MarkdownLink(
-                text[start:destination_start - 1],
+                text[start : destination_start - 1],
                 destination,
                 destination_start,
                 destination_end,
@@ -602,7 +649,9 @@ def _markdown_link_matches(
             if link is not None:
                 confirmed.append(link)
 
-    unsupported = sorted(key for key, count in expected.items() if count and not key[1].startswith("#fn"))
+    unsupported = sorted(
+        key for key, count in expected.items() if count and not key[1].startswith("#fn")
+    )
     if unsupported:
         if syntax_errors:
             raise CollectionError(syntax_errors[0])
@@ -622,9 +671,7 @@ def _has_reference_definition(text: str) -> bool:
     return bool(parser.references)
 
 
-def _git_object_kind(
-    repo: Path, commit: str, path: PurePosixPath
-) -> str | None:
+def _git_object_kind(repo: Path, commit: str, path: PurePosixPath) -> str | None:
     """Return the safe Git object type for an exact path at an exact commit."""
     raw = _git(
         repo,
@@ -679,13 +726,20 @@ def _source_contract(
         repository,
         LEGACY_CONTRACT_REPOSITORIES[name],
     }
-    if type(root["schema_version"]) is not int or root["schema_version"] != 1 or root["project"] != name or not accepted_repository:
+    if (
+        type(root["schema_version"]) is not int
+        or root["schema_version"] != 1
+        or root["project"] != name
+        or not accepted_repository
+    ):
         raise CollectionError(f"invalid {name} publication identity/schema")
     content = root["source_commit"]
     if not isinstance(content, str) or not SHA_RE.fullmatch(content):
         raise CollectionError(f"invalid {name} source_commit")
     if name == "dasc":
-        decision = _mapping(root["publication_decision"], {"state", "reason", "evidence"}, "dasc decision")
+        decision = _mapping(
+            root["publication_decision"], {"state", "reason", "evidence"}, "dasc decision"
+        )
         if not isinstance(decision["state"], str) or not decision["state"].strip():
             raise CollectionError("invalid DASC publication decision state")
         if decision["state"] != "approved":
@@ -703,10 +757,18 @@ def _source_contract(
     if not isinstance(root["files"], list):
         raise CollectionError(f"{name} files must be a list")
     for index, item in enumerate(root["files"]):
-        item = _mapping(item, {"source", "destination", "media_type", "documentation_status", "redistribution"}, f"{name}.files[{index}]")
+        item = _mapping(
+            item,
+            {"source", "destination", "media_type", "documentation_status", "redistribution"},
+            f"{name}.files[{index}]",
+        )
         source = _path(item["source"], "source")
         destination = _path(item["destination"], "destination")
-        if destination.parts[0] != name or source.suffix.lower() not in ALLOWED or item["media_type"] != MEDIA[source.suffix.lower()]:
+        if (
+            destination.parts[0] != name
+            or source.suffix.lower() not in ALLOWED
+            or item["media_type"] != MEDIA[source.suffix.lower()]
+        ):
             raise CollectionError(f"invalid approved file: {source}")
         folded_source = source.as_posix().casefold()
         folded_destination = destination.as_posix().casefold()
@@ -717,11 +779,20 @@ def _source_contract(
         approved_sources.add(folded_source)
         approved_destinations.add(folded_destination)
         status = _mapping(item["documentation_status"], {"label", "evidence"}, "status")
-        if not isinstance(status["label"], str) or status["label"] not in DOCUMENTATION_STATUSES or not isinstance(status["evidence"], str) or not status["evidence"].strip():
+        if (
+            not isinstance(status["label"], str)
+            or status["label"] not in DOCUMENTATION_STATUSES
+            or not isinstance(status["evidence"], str)
+            or not status["evidence"].strip()
+        ):
             raise CollectionError(f"invalid status for {source}")
-        rights_keys = {"spdx_license", "license_file"} | ({"attribution"} if name == "dasc" else set())
+        rights_keys = {"spdx_license", "license_file"} | (
+            {"attribution"} if name == "dasc" else set()
+        )
         rights = _mapping(item["redistribution"], rights_keys, "redistribution")
-        if not isinstance(rights["spdx_license"], str) or not SPDX_RE.fullmatch(rights["spdx_license"]):
+        if not isinstance(rights["spdx_license"], str) or not SPDX_RE.fullmatch(
+            rights["spdx_license"]
+        ):
             raise CollectionError(f"invalid SPDX license for {source}")
         if name == "dasc" and (
             not isinstance(rights["attribution"], str)
@@ -732,23 +803,44 @@ def _source_contract(
         license_path = _path(rights["license_file"], "license_file")
         if _git_object_kind(path.parent, content, license_path) != "blob":
             raise CollectionError(f"missing or unsafe license at approved commit for {source}")
-        license_bytes = _git(path.parent, "show", f"{content}:{license_path.as_posix()}", binary=True)
+        license_bytes = _git(
+            path.parent, "show", f"{content}:{license_path.as_posix()}", binary=True
+        )
         if not license_bytes:
             raise CollectionError(f"missing license at approved commit for {source}")
-        approved[source.as_posix()] = {**item, "_destination": destination, "_status": status["label"], "_license": rights["spdx_license"], "_attribution": rights.get("attribution", "")}
+        approved[source.as_posix()] = {
+            **item,
+            "_destination": destination,
+            "_status": status["label"],
+            "_license": rights["spdx_license"],
+            "_attribution": rights.get("attribution", ""),
+        }
     return content, approved
 
 
 def load_manifest(path: Path, checkouts: dict[str, Path] | None = None) -> list[Entry]:
     root = _mapping(_read_yaml(path), {"schema_version", "sources"}, "website manifest")
-    if type(root["schema_version"]) is not int or root["schema_version"] != 2 or not isinstance(root["sources"], dict) or set(root["sources"]) != set(EXPECTED):
+    if (
+        type(root["schema_version"]) is not int
+        or root["schema_version"] != 2
+        or not isinstance(root["sources"], dict)
+        or set(root["sources"]) != set(EXPECTED)
+    ):
         raise CollectionError("website manifest must be schema 2 with exactly pydasc and dasc")
     entries: list[Entry] = []
     destinations: set[str] = set()
     for name, repository in EXPECTED.items():
-        source = _mapping(root["sources"][name], {"repository", "checkout_commit", "publication_manifest", "files"}, f"source {name}")
+        source = _mapping(
+            root["sources"][name],
+            {"repository", "checkout_commit", "publication_manifest", "files"},
+            f"source {name}",
+        )
         checkout_commit = source["checkout_commit"]
-        if source["repository"] != repository or not isinstance(checkout_commit, str) or not SHA_RE.fullmatch(checkout_commit):
+        if (
+            source["repository"] != repository
+            or not isinstance(checkout_commit, str)
+            or not SHA_RE.fullmatch(checkout_commit)
+        ):
             raise CollectionError(f"invalid lock identity/commit for {name}")
         manifest_rel = _path(source["publication_manifest"], "publication_manifest")
         if not isinstance(source["files"], list) or not source["files"]:
@@ -770,9 +862,7 @@ def load_manifest(path: Path, checkouts: dict[str, Path] | None = None) -> list[
                 binary=True,
             )
             if working_contract != committed_contract:
-                raise CollectionError(
-                    f"{name} publication manifest differs from locked commit"
-                )
+                raise CollectionError(f"{name} publication manifest differs from locked commit")
             content_commit, approved = _source_contract(
                 contract,
                 name,
@@ -784,7 +874,11 @@ def load_manifest(path: Path, checkouts: dict[str, Path] | None = None) -> list[
             selected = _mapping(selected, {"source", "destination"}, f"{name}.files[{index}]")
             src = _path(selected["source"], "source")
             dest = _path(selected["destination"], "destination")
-            if dest.parts[0] != name or src.suffix.lower() not in ALLOWED or src.suffix.lower() != dest.suffix.lower():
+            if (
+                dest.parts[0] != name
+                or src.suffix.lower() not in ALLOWED
+                or src.suffix.lower() != dest.suffix.lower()
+            ):
                 raise CollectionError(f"invalid selected file {src} -> {dest}")
             folded = dest.as_posix().casefold()
             if folded in destinations:
@@ -794,13 +888,29 @@ def load_manifest(path: Path, checkouts: dict[str, Path] | None = None) -> list[
                 offer = approved.get(src.as_posix())
                 if offer is None or offer["_destination"] != dest:
                     raise CollectionError(f"missing source approval: {src} -> {dest}")
-                entries.append(Entry(name, repository, checkout_commit, content_commit, src, dest, offer["_status"], offer["_license"], offer["_attribution"]))
+                entries.append(
+                    Entry(
+                        name,
+                        repository,
+                        checkout_commit,
+                        content_commit,
+                        src,
+                        dest,
+                        offer["_status"],
+                        offer["_license"],
+                        offer["_attribution"],
+                    )
+                )
             else:
-                entries.append(Entry(name, repository, checkout_commit, content_commit, src, dest, "", "", ""))
+                entries.append(
+                    Entry(name, repository, checkout_commit, content_commit, src, dest, "", "", "")
+                )
     return entries
 
 
-def _rewrite(text: str, entry: Entry, selected: dict[tuple[str, str], Entry], checkout: Path) -> str:
+def _rewrite(
+    text: str, entry: Entry, selected: dict[tuple[str, str], Entry], checkout: Path
+) -> str:
     def replacement(label: str, raw: str) -> str:
         original = raw
         raw = unescape(raw)
@@ -853,9 +963,7 @@ def _rewrite(text: str, entry: Entry, selected: dict[tuple[str, str], Entry], ch
     for match in reversed(_markdown_link_matches(text, entry.source)):
         target = replacement(match.label, match.destination)
         rewritten = (
-            rewritten[:match.destination_start]
-            + target
-            + rewritten[match.destination_end:]
+            rewritten[: match.destination_start] + target + rewritten[match.destination_end :]
         )
     return rewritten
 
@@ -949,11 +1057,19 @@ def _write_inventory_atomic(path: Path, inventory: list[dict[str, Any]]) -> None
     temporary: Path | None = None
     try:
         with tempfile.NamedTemporaryFile(
-            mode="w", encoding="utf-8", newline="\n", dir=path.parent,
-            prefix=".generated-inventory-", suffix=".tmp", delete=False,
+            mode="w",
+            encoding="utf-8",
+            newline="\n",
+            dir=path.parent,
+            prefix=".generated-inventory-",
+            suffix=".tmp",
+            delete=False,
         ) as stream:
             temporary = Path(stream.name)
-            stream.write(json.dumps({"schema_version": 1, "files": inventory}, indent=2, sort_keys=True) + "\n")
+            stream.write(
+                json.dumps({"schema_version": 1, "files": inventory}, indent=2, sort_keys=True)
+                + "\n"
+            )
             stream.flush()
             os.fchmod(stream.fileno(), 0o644)
             os.fsync(stream.fileno())
@@ -979,13 +1095,19 @@ def assemble(manifest: Path, output: Path, pydasc: Path, dasc: Path) -> list[dic
         for entry in entries:
             root = checkouts[entry.source_name]
             source = root.joinpath(*entry.source.parts)
-            if source.is_symlink() or not _inside(source.resolve(strict=False), root) or not source.is_file():
+            if (
+                source.is_symlink()
+                or not _inside(source.resolve(strict=False), root)
+                or not source.is_file()
+            ):
                 raise CollectionError(f"unsafe or missing source: {entry.source}")
             if source.stat().st_size > MAX_FILE_BYTES:
                 raise CollectionError(f"oversized source: {entry.source}")
             if _git_object_kind(root, entry.content_commit, entry.source) != "blob":
                 raise CollectionError(f"source is not a regular Git blob: {entry.source}")
-            committed = _git(root, "show", f"{entry.content_commit}:{entry.source.as_posix()}", binary=True)
+            committed = _git(
+                root, "show", f"{entry.content_commit}:{entry.source.as_posix()}", binary=True
+            )
             data = _read_regular_file(source, "source document")
             if data != committed:
                 raise CollectionError(f"source differs from approved commit: {entry.source}")
@@ -1003,15 +1125,11 @@ def assemble(manifest: Path, output: Path, pydasc: Path, dasc: Path) -> list[dic
                     raise CollectionError(f"reference-style links are not allowed: {entry.source}")
                 body = _rewrite(body, entry, selected, root)
                 encoded_source = quote(entry.source.as_posix(), safe="/")
-                source_url = (
-                    f"{entry.repository}/blob/{entry.content_commit}/{encoded_source}"
-                )
+                source_url = f"{entry.repository}/blob/{entry.content_commit}/{encoded_source}"
                 project = "PyDASC" if entry.source_name == "pydasc" else "DASC"
                 banner = f"<!-- Generated; source={source_url}; status={entry.status}; license={entry.license_id}; attribution={entry.attribution}; do not edit. -->\n\n"
                 attribution = (
-                    f"    **Attribution:** {entry.attribution}  \n"
-                    if entry.attribution
-                    else ""
+                    f"    **Attribution:** {entry.attribution}  \n" if entry.attribution else ""
                 )
                 publication = (
                     '!!! info "Publication record"\n'
@@ -1022,7 +1140,18 @@ def assemble(manifest: Path, output: Path, pydasc: Path, dasc: Path) -> list[dic
                 )
                 data = (banner + publication + body.rstrip() + "\n").encode()
             destination.write_bytes(data)
-            inventory.append({"destination": entry.destination.as_posix(), "sha256": hashlib.sha256(data).hexdigest(), "repository": entry.repository, "source": entry.source.as_posix(), "commit": entry.content_commit, "status": entry.status, "license": entry.license_id, "attribution": entry.attribution})
+            inventory.append(
+                {
+                    "destination": entry.destination.as_posix(),
+                    "sha256": hashlib.sha256(data).hexdigest(),
+                    "repository": entry.repository,
+                    "source": entry.source.as_posix(),
+                    "commit": entry.content_commit,
+                    "status": entry.status,
+                    "license": entry.license_id,
+                    "attribution": entry.attribution,
+                }
+            )
         # Recheck the entire boundary after staging, before touching any output.
         _preflight_output(output, checkouts, manifest)
         if before != {name: _tree_state(repo) for name, repo in checkouts.items()}:
@@ -1030,7 +1159,9 @@ def assemble(manifest: Path, output: Path, pydasc: Path, dasc: Path) -> list[dic
         inventory.sort(key=lambda item: item["destination"])
         try:
             publish(
-                output, stage, tuple(EXPECTED),
+                output,
+                stage,
+                tuple(EXPECTED),
                 lambda: _write_inventory_atomic(output / "generated-inventory.json", inventory),
                 lambda: _preflight_output(output, checkouts, manifest),
             )
