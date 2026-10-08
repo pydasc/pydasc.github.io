@@ -6,6 +6,9 @@ import argparse, hashlib, os, stat, sys
 from html import unescape
 from pathlib import Path, PurePosixPath
 from urllib.parse import quote
+from safe_files import read_regular_file as _read_regular_file
+from safe_files import check_inventory_path as _check_inventory_path
+from structured_input import read_json as _read_json
 from collect_docs import (
     DOCUMENTATION_STATUSES,
     EXPECTED,
@@ -14,11 +17,8 @@ from collect_docs import (
     SPDX_RE,
     UNSAFE_ATTRIBUTION_RE,
     CollectionError,
-    _check_inventory_path,
     _decode_link_path,
     _markdown_link_matches,
-    _read_json,
-    _read_regular_file,
     _split_link,
     load_manifest,
 )

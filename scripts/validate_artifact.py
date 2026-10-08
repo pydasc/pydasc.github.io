@@ -7,7 +7,8 @@ import os
 from pathlib import Path
 import stat
 import sys
-from collect_docs import FORBIDDEN, MAX_FILE_BYTES, _read_regular_file
+from publication_policy import FORBIDDEN, MAX_FILE_BYTES
+from safe_files import read_regular_file as _read_regular_file
 
 
 def validate(site: Path) -> None:

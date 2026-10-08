@@ -11,27 +11,19 @@ import sys
 import tempfile
 from pathlib import Path
 
+from safe_files import read_regular_file as _read_regular_file
+from git_inspection import inspect_git
 from collect_docs import (
     CollectionError,
     EXPECTED,
     SHA_RE,
     UnapprovedPublicationError,
-    _read_regular_file,
     load_manifest,
 )
 
 
 def _head(checkout: Path) -> str:
-    try:
-        result = subprocess.run(
-            ["git", "rev-parse", "HEAD"],
-            cwd=checkout,
-            check=True,
-            capture_output=True,
-            text=True,
-        ).stdout.strip()
-    except (OSError, subprocess.CalledProcessError) as exc:
-        raise CollectionError(f"cannot inspect candidate checkout: {checkout}") from exc
+    result = inspect_git(checkout, "rev-parse", "HEAD").strip()
     if not SHA_RE.fullmatch(result):
         raise CollectionError(f"candidate checkout has invalid HEAD: {checkout}")
     return result
