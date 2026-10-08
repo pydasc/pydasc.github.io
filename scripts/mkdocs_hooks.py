@@ -6,6 +6,7 @@ from typing import Any
 
 
 from html_tables import wrap_tables
+from navigation_policy import validate_navigation
 
 
 def on_page_content(content: str, page: Any, **_: Any) -> str:
@@ -36,3 +37,9 @@ def on_env(env: Any, **_: Any) -> Any:
     env.loader = ChoiceLoader([DictLoader({name: source}), env.loader])
     env._dasc_nav_labels = True
     return env
+
+
+def on_files(files: Any, config: Any, **_: Any) -> Any:
+    """Stop unlisted documentation pages before MkDocs writes public output."""
+
+    return validate_navigation(files, config["nav"])

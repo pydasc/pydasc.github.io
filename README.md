@@ -91,7 +91,8 @@ Link discovery verifies individual source occurrences with the configured Markdo
 
 [`mkdocs.yml`](mkdocs.yml) is the current configuration, including explicit
 navigation, theme features, hooks and internal-document exclusions. Change that
-file rather than copying an old scaffold. New imports require a reviewed manifest
+file rather than copying an old scaffold. The build rejects documentation pages absent from explicit navigation, honoring
+internal exclusions. New imports require a reviewed manifest
 entry and matching upstream approval; authored pages require explicit navigation.
 
 ### Presentation
