@@ -204,3 +204,17 @@ After the reviewed workflow conversion is committed and pushed:
 
 Review the App installation and rotate its private key periodically. Remove an
 obsolete private key only after workflows using its replacement pass.
+
+
+## Job-scoped website permissions
+
+Workflow defaults grant only `contents: read`. The Pages deploy job alone adds
+`pages: write` and `id-token: write`; its build job remains read-only. The protected
+source-update proposal job explicitly receives website contents/PR writes, while
+its source GitHub App token remains read-only and limited to the two source repos.
+
+Keeping candidate validation and PR creation in one protected proposal job avoids
+introducing an executable artifact transfer into a separate privileged job. A split
+was considered but is not required for this small workflow. New jobs do not inherit
+proposal write access. This local code change does not assert remote environment
+protections or grant any additional App installation rights.

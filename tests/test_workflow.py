@@ -142,7 +142,7 @@ def test_private_acquisition_has_explicit_modes_and_no_persisted_website_credent
 
 def test_pages_has_explicit_release_controls():
     workflow = load(DEPLOY_WORKFLOW)
-    assert workflow["permissions"] == {"contents": "read", "pages": "write", "id-token": "write"}
+    assert workflow["permissions"] == {"contents": "read"}
     assert workflow["concurrency"] == {"group": "pages", "cancel-in-progress": "false"}
     assert set(workflow["on"]) == {"push", "workflow_dispatch"}
     assert workflow["on"]["push"]["branches"] == ["main"]
@@ -164,7 +164,7 @@ def test_pages_has_explicit_release_controls():
 def test_source_updates_are_review_only_proposals():
     workflow = load(UPDATE_WORKFLOW)
     assert set(workflow["on"]) == {"schedule", "workflow_dispatch"}
-    assert workflow["permissions"] == {"contents": "write", "pull-requests": "write"}
+    assert workflow["permissions"] == {"contents": "read"}
     job = workflow["jobs"]["propose"]
     update = next(s for s in job["steps"] if "scripts/update_source_locks.py" in s.get("run", ""))
     assert "--skip-unapproved" in update["run"]
@@ -189,3 +189,16 @@ def test_internal_guidance_stays_private_and_approvals_are_server_side():
         "cannot retrieve",
     ]:
         assert term in guide
+
+
+def test_effective_job_permissions_have_narrow_write_boundaries():
+    for path in (WORKFLOW, DEPLOY_WORKFLOW, UPDATE_WORKFLOW):
+        workflow = load(path)
+        for name, job in workflow["jobs"].items():
+            effective = job.get("permissions", workflow["permissions"])
+            if path == DEPLOY_WORKFLOW and name == "deploy":
+                assert effective == {"contents": "read", "pages": "write", "id-token": "write"}
+            elif path == UPDATE_WORKFLOW and name == "propose":
+                assert effective == {"contents": "write", "pull-requests": "write"}
+            else:
+                assert effective == {"contents": "read"}

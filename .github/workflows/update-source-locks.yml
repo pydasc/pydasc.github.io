@@ -6,8 +6,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
-  pull-requests: write
+  contents: read
 
 concurrency:
   group: source-lock-updates
@@ -15,6 +14,9 @@ concurrency:
 
 jobs:
   propose:
+    permissions:
+      contents: write
+      pull-requests: write
     if: github.ref == 'refs/heads/main' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
     environment: docs-sources
     runs-on: ubuntu-latest
