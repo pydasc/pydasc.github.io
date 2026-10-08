@@ -192,3 +192,12 @@ skip outcomes remain covered. Defers a structured diagnostic protocol
 because no current consumer justifies another compatibility interface.
 
 Validation: Documentation links and diff checks passed. Executable code, configuration, publication inputs and rendered assets are unchanged from WEB-REF-23; its full test/build/browser results are retained, not rerun for this documentation-only change.
+
+## WEB-REF-25 — Profile publication cost and defer unneeded caching
+
+Measures approved and larger synthetic checkouts without weakening integrity.
+Two approved collections cost about 2.7 seconds versus a 144-second test
+suite; records call counts and memory, and defers caching without claiming
+a speedup. All twelve profiling assemblies preserve approved output hashes.
+
+Validation: Documentation links and diff checks passed. Executable code, configuration, publication inputs and rendered assets are unchanged from WEB-REF-23; its full test/build/browser results are retained, not rerun for this documentation-only change. Twelve profiling assemblies also matched the approved baseline hashes.

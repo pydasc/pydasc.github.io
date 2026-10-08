@@ -1,0 +1,116 @@
+{
+  "approved": {
+    "wall_seconds": [
+      1.4214715079870075,
+      1.325778127007652,
+      1.3604356490250211,
+      1.3434371250041295,
+      1.317625636991579
+    ],
+    "median_seconds": 1.3434371250041295,
+    "python_peak_bytes_profiled": 6354038,
+    "process_peak_rss_bytes_on_macos": 38305792,
+    "functions": [
+      {
+        "function": "inspect_git",
+        "module": "git_inspection.py",
+        "calls": 56,
+        "cumulative_seconds_profiled": 0.938272
+      },
+      {
+        "function": "_tree_state",
+        "module": "collect_docs.py",
+        "calls": 6,
+        "cumulative_seconds_profiled": 0.705935
+      },
+      {
+        "function": "_rewrite",
+        "module": "markdown_policy.py",
+        "calls": 5,
+        "cumulative_seconds_profiled": 3.119265
+      },
+      {
+        "function": "_source_contract",
+        "module": "source_manifest.py",
+        "calls": 2,
+        "cumulative_seconds_profiled": 0.203761
+      },
+      {
+        "function": "approve_entries",
+        "module": "source_manifest.py",
+        "calls": 1,
+        "cumulative_seconds_profiled": 0.267024
+      },
+      {
+        "function": "convert",
+        "module": "core.py",
+        "calls": 15,
+        "cumulative_seconds_profiled": 2.377541
+      },
+      {
+        "function": "publish",
+        "module": "publication_transaction.py",
+        "calls": 1,
+        "cumulative_seconds_profiled": 0.047156
+      }
+    ],
+    "output_matches_approved": true
+  },
+  "synthetic": {
+    "wall_seconds": [
+      2.1942076639970765,
+      2.5672551159805153,
+      2.242145119991619,
+      2.2073295599839184,
+      2.18042886297917
+    ],
+    "median_seconds": 2.2073295599839184,
+    "python_peak_bytes_profiled": 7007799,
+    "process_peak_rss_bytes_on_macos": 45907968,
+    "functions": [
+      {
+        "function": "inspect_git",
+        "module": "git_inspection.py",
+        "calls": 56,
+        "cumulative_seconds_profiled": 1.007354
+      },
+      {
+        "function": "_tree_state",
+        "module": "collect_docs.py",
+        "calls": 6,
+        "cumulative_seconds_profiled": 3.605504
+      },
+      {
+        "function": "_rewrite",
+        "module": "markdown_policy.py",
+        "calls": 5,
+        "cumulative_seconds_profiled": 3.169876
+      },
+      {
+        "function": "_source_contract",
+        "module": "source_manifest.py",
+        "calls": 2,
+        "cumulative_seconds_profiled": 0.205443
+      },
+      {
+        "function": "approve_entries",
+        "module": "source_manifest.py",
+        "calls": 1,
+        "cumulative_seconds_profiled": 0.271359
+      },
+      {
+        "function": "convert",
+        "module": "core.py",
+        "calls": 15,
+        "cumulative_seconds_profiled": 2.413911
+      },
+      {
+        "function": "publish",
+        "module": "publication_transaction.py",
+        "calls": 1,
+        "cumulative_seconds_profiled": 0.045376
+      }
+    ],
+    "output_matches_approved": true
+  }
+}
