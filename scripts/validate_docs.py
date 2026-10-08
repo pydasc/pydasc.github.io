@@ -1,76 +1,73 @@
 #!/usr/bin/env python3
-"""Validate assembled docs and checksummed inventory."""
+"""Validate generated structure/provenance; source approval remains a collector check."""
 
 from __future__ import annotations
-import argparse, hashlib, os, stat, sys
+import argparse
+import hashlib
+import os
+import stat
+import sys
 from html import unescape
 from pathlib import Path, PurePosixPath
-from urllib.parse import quote
-from safe_files import read_regular_file as _read_regular_file
-from safe_files import check_inventory_path as _check_inventory_path
-from structured_input import read_json as _read_json
-from publication_models import provenance_banner
-from markdown_policy import _decode_link_path, _markdown_link_matches, _split_link
-from collect_docs import (
+from publication_errors import CollectionError
+from publication_policy import (
     DOCUMENTATION_STATUSES,
     EXPECTED,
     FORBIDDEN,
     SHA_RE,
     SPDX_RE,
     UNSAFE_ATTRIBUTION_RE,
-    CollectionError,
-    load_manifest,
 )
+from publication_models import InventoryRecord, SelectedEntry, provenance_banner
+from source_manifest import load_manifest
+from safe_files import check_inventory_path as _check_inventory_path, read_regular_file
+from structured_input import read_json
+from markdown_policy import _decode_link_path, _markdown_link_matches, _split_link
 
 
-def validate(manifest: Path, docs: Path) -> None:
-    selected = {entry.destination.as_posix(): entry for entry in load_manifest(manifest)}
-    docs = docs.resolve()
-    inventory_path = docs / "generated-inventory.json"
-    _check_inventory_path(inventory_path, required=True)
-    inventory = _read_json(_read_regular_file(inventory_path, "inventory"), "inventory")
+def read_inventory(docs: Path) -> dict[str, InventoryRecord]:
+    path = docs / "generated-inventory.json"
+    _check_inventory_path(path, required=True)
+    data = read_json(read_regular_file(path, "inventory"), "inventory")
     if (
-        not isinstance(inventory, dict)
-        or set(inventory) != {"schema_version", "files"}
-        or type(inventory["schema_version"]) is not int
-        or inventory["schema_version"] != 1
-        or not isinstance(inventory["files"], list)
+        not isinstance(data, dict)
+        or set(data) != {"schema_version", "files"}
+        or type(data["schema_version"]) is not int
+        or data["schema_version"] != 1
+        or not isinstance(data["files"], list)
     ):
         raise CollectionError("invalid inventory schema")
-    required_item_keys = {
-        "destination",
-        "sha256",
-        "repository",
-        "source",
-        "commit",
-        "status",
-        "license",
-        "attribution",
-    }
-    expected = {}
-    for index, item in enumerate(inventory["files"]):
-        if not isinstance(item, dict) or set(item) != required_item_keys:
+    required = set(InventoryRecord.__dataclass_fields__)
+    records = {}
+    for index, item in enumerate(data["files"]):
+        if not isinstance(item, dict) or set(item) != required:
             raise CollectionError(f"invalid inventory item at index {index}")
-        destination = item["destination"]
-        if not isinstance(destination, str):
-            raise CollectionError(f"invalid inventory destination at index {index}")
-        expected[destination] = item
-    if len(expected) != len(inventory["files"]):
-        raise CollectionError("duplicate inventory destination")
-    if set(expected) != set(selected):
+        for key in required:
+            if not isinstance(item[key], str):
+                raise CollectionError(f"invalid inventory {key} at index {index}")
+        record = InventoryRecord(**item)
+        if record.destination in records:
+            raise CollectionError("duplicate inventory destination")
+        records[record.destination] = record
+    return records
+
+
+def reconcile_selection(records, selected) -> None:
+    if set(records) != set(selected):
         raise CollectionError(
-            f"inventory differs from manifest: missing={sorted(set(selected) - set(expected))}, "
-            f"unexpected={sorted(set(expected) - set(selected))}"
+            f"inventory differs from manifest: missing={sorted(set(selected) - set(records))}, "
+            f"unexpected={sorted(set(records) - set(selected))}"
         )
-    actual: set[str] = set()
+
+
+def generated_files(docs: Path) -> set[str]:
+    actual = set()
     for namespace in EXPECTED:
         root = docs / namespace
         if root.is_symlink() or not root.is_dir():
             raise CollectionError(f"missing/unsafe namespace: {namespace}")
         pending = [root]
         while pending:
-            # scandir propagates inspection errors instead of silently skipping
-            # inaccessible subtrees, as glob implementations can do.
             with os.scandir(pending.pop()) as children:
                 for child in children:
                     path = Path(child.path)
@@ -85,61 +82,70 @@ def validate(manifest: Path, docs: Path) -> None:
                         raise CollectionError(
                             f"unsafe output entry (expected a regular file or directory): {path}"
                         )
-    if actual != set(expected):
+    return actual
+
+
+def validate_provenance(item: InventoryRecord, selection: SelectedEntry) -> None:
+    relative = item.destination
+    if item.repository != selection.repository or item.source != selection.source.as_posix():
+        raise CollectionError(f"inventory provenance differs from manifest: {relative}")
+    if not SHA_RE.fullmatch(item.commit):
+        raise CollectionError(f"invalid inventory commit: {relative}")
+    if item.status not in DOCUMENTATION_STATUSES:
+        raise CollectionError(f"invalid inventory status: {relative}")
+    if not SPDX_RE.fullmatch(item.license):
+        raise CollectionError(f"invalid inventory license: {relative}")
+    if UNSAFE_ATTRIBUTION_RE.search(item.attribution):
+        raise CollectionError(f"invalid inventory attribution: {relative}")
+    if selection.source_name == "dasc" and not item.attribution.strip():
+        raise CollectionError(f"missing inventory attribution: {relative}")
+
+
+def validate_generated_links(text: str, relative: str, path: Path, docs: Path) -> None:
+    for match in _markdown_link_matches(text, PurePosixPath(relative)):
+        raw = unescape(match.destination)
+        parsed = _split_link(raw, PurePosixPath(relative))
+        if parsed.scheme in {"http", "https", "mailto"} or raw.startswith("#"):
+            if match.label.startswith("!"):
+                raise CollectionError(f"image is not approved: {relative}: {raw}")
+            continue
+        if parsed.scheme or parsed.netloc or raw.startswith("/"):
+            raise CollectionError(f"unsafe link: {relative}: {raw}")
+        if not parsed.path:
+            if match.label.startswith("!"):
+                raise CollectionError(f"image is not approved: {relative}: {raw}")
+            continue
+        decoded = _decode_link_path(parsed.path, PurePosixPath(relative))
+        target = path.parent.joinpath(*decoded.parts).resolve()
+        if not target.is_relative_to(docs) or not target.is_file():
+            raise CollectionError(f"broken link: {relative}: {raw}")
+
+
+def validate_document(item: InventoryRecord, docs: Path) -> None:
+    path = docs / item.destination
+    data = read_regular_file(path, "generated document")
+    if hashlib.sha256(data).hexdigest() != item.sha256:
+        raise CollectionError(f"checksum mismatch: {item.destination}")
+    if path.suffix.lower() == ".md":
+        text = data.decode("utf-8")
+        if FORBIDDEN.search(text) or not text.startswith(provenance_banner(item.mapping())):
+            raise CollectionError(f"unsafe/missing provenance: {item.destination}")
+        validate_generated_links(text, item.destination, path, docs)
+
+
+def validate(manifest: Path, docs: Path) -> None:
+    selected = {entry.destination.as_posix(): entry for entry in load_manifest(manifest)}
+    docs = docs.resolve()
+    records = read_inventory(docs)
+    reconcile_selection(records, selected)
+    actual = generated_files(docs)
+    if actual != set(records):
         raise CollectionError(
-            f"output boundary differs: missing={sorted(set(expected) - actual)}, unexpected={sorted(actual - set(expected))}"
+            f"output boundary differs: missing={sorted(set(records) - actual)}, unexpected={sorted(actual - set(records))}"
         )
-    for relative, item in expected.items():
-        selection = selected[relative]
-        if (
-            item["repository"] != selection.repository
-            or item["source"] != selection.source.as_posix()
-        ):
-            raise CollectionError(f"inventory provenance differs from manifest: {relative}")
-        if not isinstance(item["commit"], str) or not SHA_RE.fullmatch(item["commit"]):
-            raise CollectionError(f"invalid inventory commit: {relative}")
-        if not isinstance(item["status"], str) or item["status"] not in DOCUMENTATION_STATUSES:
-            raise CollectionError(f"invalid inventory status: {relative}")
-        if not isinstance(item["license"], str) or not SPDX_RE.fullmatch(item["license"]):
-            raise CollectionError(f"invalid inventory license: {relative}")
-        if not isinstance(item["attribution"], str) or UNSAFE_ATTRIBUTION_RE.search(
-            item["attribution"]
-        ):
-            raise CollectionError(f"invalid inventory attribution: {relative}")
-        if selection.source_name == "dasc" and not item["attribution"].strip():
-            raise CollectionError(f"missing inventory attribution: {relative}")
-        path = docs / relative
-        data = _read_regular_file(path, "generated document")
-        if hashlib.sha256(data).hexdigest() != item["sha256"]:
-            raise CollectionError(f"checksum mismatch: {relative}")
-        if path.suffix.lower() == ".md":
-            text = data.decode("utf-8")
-            encoded_source = quote(item["source"], safe="/")
-            source_url = f"{item['repository']}/blob/{item['commit']}/{encoded_source}"
-            banner = provenance_banner(item)
-            if FORBIDDEN.search(text) or not text.startswith(banner):
-                raise CollectionError(f"unsafe/missing provenance: {relative}")
-            matches = _markdown_link_matches(
-                text,
-                PurePosixPath(relative),
-            )
-            for match in matches:
-                raw = unescape(match.destination)
-                parsed = _split_link(raw, PurePosixPath(relative))
-                if parsed.scheme in {"http", "https", "mailto"} or raw.startswith("#"):
-                    if match.label.startswith("!"):
-                        raise CollectionError(f"image is not approved: {relative}: {raw}")
-                    continue
-                if parsed.scheme or parsed.netloc or raw.startswith("/"):
-                    raise CollectionError(f"unsafe link: {relative}: {raw}")
-                if not parsed.path:
-                    if match.label.startswith("!"):
-                        raise CollectionError(f"image is not approved: {relative}: {raw}")
-                    continue
-                decoded_path = _decode_link_path(parsed.path, PurePosixPath(relative))
-                target = path.parent.joinpath(*decoded_path.parts).resolve()
-                if not target.is_relative_to(docs) or not target.is_file():
-                    raise CollectionError(f"broken link: {relative}: {raw}")
+    for relative, record in records.items():
+        validate_provenance(record, selected[relative])
+        validate_document(record, docs)
 
 
 def main() -> int:
