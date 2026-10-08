@@ -10,7 +10,7 @@ from pathlib import Path
 from urllib.parse import unquote, urlsplit
 
 import markdown
-from collect_docs import MARKDOWN_POLICY_EXTENSIONS
+from publication_policy import MARKDOWN_POLICY_EXTENSIONS
 from html_references import References
 
 

@@ -10,6 +10,7 @@ from safe_files import read_regular_file as _read_regular_file
 from safe_files import check_inventory_path as _check_inventory_path
 from structured_input import read_json as _read_json
 from publication_models import provenance_banner
+from markdown_policy import _decode_link_path, _markdown_link_matches, _split_link
 from collect_docs import (
     DOCUMENTATION_STATUSES,
     EXPECTED,
@@ -18,9 +19,6 @@ from collect_docs import (
     SPDX_RE,
     UNSAFE_ATTRIBUTION_RE,
     CollectionError,
-    _decode_link_path,
-    _markdown_link_matches,
-    _split_link,
     load_manifest,
 )
 
