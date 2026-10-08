@@ -34,6 +34,20 @@ const server = http.createServer((req, res) => {
     page.on('pageerror', error => errors.push(error.message));
     page.on('response', response => { if (response.url().startsWith(base) && response.status() >= 400) errors.push(`${response.status()} ${new URL(response.url()).pathname}`); });
     await page.goto(base + '/pydasc/', {waitUntil:'networkidle'});
+    const sectionColors = await page.locator('.md-sidebar--primary .md-nav__item--section > .md-nav__link[for]').evaluateAll(elements => elements.filter(el => el.getClientRects().length).map(el => ({text:el.textContent.trim(),foreground:getComputedStyle(el).color,background:getComputedStyle(el.closest('.md-sidebar--primary')).backgroundColor})));
+    assert(sectionColors.length > 0, 'desktop must exercise visible project section labels');
+    const channels = color => color.match(/[\d.]+/g).map(Number);
+    const luminance = rgb => {
+      const values = rgb.slice(0,3).map(value => {value /= 255; return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;});
+      return values[0] * 0.2126 + values[1] * 0.7152 + values[2] * 0.0722;
+    };
+    for (const colors of sectionColors) {
+      const foreground = channels(colors.foreground), background = channels(colors.background);
+      const alpha = foreground[3] ?? 1;
+      const composite = foreground.slice(0,3).map((value, i) => alpha * value + (1-alpha) * background[i]);
+      const a = luminance(composite), b = luminance(background);
+      assert((Math.max(a,b)+0.05)/(Math.min(a,b)+0.05) >= 4.5, `low sidebar section contrast: ${colors.text}`);
+    }
     assert.equal(await page.locator('.md-footer__link--prev').count(), 0);
     const next = page.locator('.md-footer__link--next');
     assert.equal(new URL(await next.getAttribute('href'), page.url()).pathname, '/pydasc/guides/simulation-workflow/');

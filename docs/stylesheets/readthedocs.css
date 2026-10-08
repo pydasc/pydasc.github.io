@@ -2,6 +2,7 @@
   --dasc-sidebar-width: 300px;
   --dasc-sidebar-bg: #343131;
   --dasc-sidebar-muted: #9b9b9b;
+  --dasc-sidebar-text: #d9d9d9;
   --dasc-accent: #2980b9;
   --dasc-accent-strong: #246f9f;
   --dasc-link: #1f6f9f;
@@ -125,6 +126,12 @@ a,
 
 .md-content {
   min-width: 0;
+}
+
+/* Material section labels use its foreground token at higher specificity.
+   Keep those labels within the same sidebar foreground contract as links. */
+.md-sidebar--primary {
+  --md-default-fg-color--light: var(--dasc-sidebar-text);
 }
 
 /* Keep one navigation column and one article column at every viewport. */
@@ -475,7 +482,7 @@ a,
   }
 
   .md-sidebar--primary .md-nav {
-    color: #d9d9d9;
+    color: var(--dasc-sidebar-text);
     font-size: 0.83rem;
   }
 
@@ -494,7 +501,7 @@ a,
     min-height: 2rem;
     margin: 0;
     padding: 0.42rem 1.2rem;
-    color: #d9d9d9;
+    color: var(--dasc-sidebar-text);
   }
 
   .md-sidebar--primary .md-nav__item .md-nav__item .md-nav__link {
@@ -550,7 +557,7 @@ a,
   }
 
   .md-sidebar--primary .md-nav__link {
-    color: #d9d9d9;
+    color: var(--dasc-sidebar-text);
   }
 
   .md-sidebar--primary .md-nav__link--active {
