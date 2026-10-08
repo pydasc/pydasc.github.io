@@ -114,75 +114,12 @@ jobs:
             dasc
           permission-contents: read
 
-      - name: Read reviewed source locks
-        id: sources
-        shell: bash
-        run: |
-          python - <<'PY' >> "$GITHUB_OUTPUT"
-          from pathlib import Path
-          import sys
-
-          import yaml
-
-          sys.path.insert(0, str(Path("scripts").resolve()))
-          from collect_docs import load_manifest
-
-          # Fail before network access if identities, commits, paths, or keys are unsafe.
-          load_manifest(Path("docs-manifest.yml"))
-          manifest = yaml.safe_load(Path("docs-manifest.yml").read_text(encoding="utf-8"))
-          for name in ("pydasc", "dasc"):
-              source = manifest["sources"][name]
-              print(f"{name}_repository={source['repository']}")
-              print(f"{name}_commit={source['checkout_commit']}")
-          PY
-
-      - name: Fetch reviewed private source commits
-        shell: bash
+      - name: Acquire reviewed private source commits
         env:
           SOURCE_TOKEN: ${{ steps.source-token.outputs.token }}
-          PYDASC_REPOSITORY: ${{ steps.sources.outputs.pydasc_repository }}
-          PYDASC_COMMIT: ${{ steps.sources.outputs.pydasc_commit }}
-          DASC_REPOSITORY: ${{ steps.sources.outputs.dasc_repository }}
-          DASC_COMMIT: ${{ steps.sources.outputs.dasc_commit }}
-        run: |
-          set -euo pipefail
-          auth_header="$(printf 'x-access-token:%s' "$SOURCE_TOKEN" | base64 | tr -d '\n')"
-          echo "::add-mask::$auth_header"
-          mkdir -p .source-checkouts/pydasc .source-checkouts/dasc
-          for name in pydasc dasc; do
-            if [[ "$name" == "pydasc" ]]; then
-              repository="$PYDASC_REPOSITORY"
-              commit="$PYDASC_COMMIT"
-            else
-              repository="$DASC_REPOSITORY"
-              commit="$DASC_COMMIT"
-            fi
-            git -C ".source-checkouts/$name" init --quiet
-            git -C ".source-checkouts/$name" remote add origin "$repository"
-            git -C ".source-checkouts/$name" \
-              -c credential.helper= -c core.hooksPath=/dev/null \
-              -c "http.https://github.com/.extraheader=AUTHORIZATION: basic $auth_header" \
-              fetch --quiet --no-tags --depth=1 origin "$commit"
-            git -C ".source-checkouts/$name" \
-              -c core.hooksPath=/dev/null checkout --quiet --detach FETCH_HEAD
-            test "$(git -C ".source-checkouts/$name" rev-parse HEAD)" = "$commit"
-            content_commit="$(python - ".source-checkouts/$name/docs/publication-manifest.json" <<'PY'
-          import json
-          import re
-          import sys
-          from pathlib import Path
-
-          value = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8")).get("source_commit")
-          if not isinstance(value, str) or re.fullmatch(r"[0-9a-f]{40}", value) is None:
-              raise SystemExit("publication manifest has an invalid source_commit")
-          print(value)
-          PY
-            )"
-            git -C ".source-checkouts/$name" \
-              -c credential.helper= -c core.hooksPath=/dev/null \
-              -c "http.https://github.com/.extraheader=AUTHORIZATION: basic $auth_header" \
-              fetch --quiet --no-tags --depth=1 origin "$content_commit"
-          done
+        run: >-
+          python scripts/acquire_sources.py --manifest docs-manifest.yml
+          --output .source-checkouts --mode reviewed
 
       - name: Validate source contracts
         run: |

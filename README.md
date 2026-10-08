@@ -395,3 +395,12 @@ For repository Python formatting, install the pinned `requirements-dev.txt`
 and run `python -m ruff format --check scripts tests`. Apply formatting with
 `python -m ruff format scripts tests`. The formatter configuration is in
 `pyproject.toml`; site builds continue to use `requirements-docs.txt`.
+
+
+CI source acquisition is shared by `scripts/acquire_sources.py`. Its explicit
+`--mode reviewed` fetches exact website locks; `--mode candidate` fetches source
+heads only for the separately validated update-proposal workflow. Destinations
+must be fresh and outside docs. `SOURCE_TOKEN` is passed through ephemeral Git
+configuration, with credential helpers and hooks disabled; it is never stored
+in repository configuration. Failed/partial acquisition directories must be
+inspected and replaced with a fresh destination rather than reset in place.

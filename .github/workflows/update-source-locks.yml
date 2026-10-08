@@ -61,42 +61,13 @@ jobs:
             echo "skip=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Fetch candidate private source heads
+      - name: Acquire candidate private source commits
         if: steps.existing.outputs.skip != 'true'
-        shell: bash
         env:
           SOURCE_TOKEN: ${{ steps.source-token.outputs.token }}
-        run: |
-          set -euo pipefail
-          auth_header="$(printf 'x-access-token:%s' "$SOURCE_TOKEN" | base64 | tr -d '\n')"
-          echo "::add-mask::$auth_header"
-          mkdir -p .source-checkouts
-          git -c credential.helper= -c core.hooksPath=/dev/null \
-            -c "http.https://github.com/.extraheader=AUTHORIZATION: basic $auth_header" \
-            clone --quiet --depth=1 \
-            https://github.com/pydasc/pydasc .source-checkouts/pydasc
-          git -c credential.helper= -c core.hooksPath=/dev/null \
-            -c "http.https://github.com/.extraheader=AUTHORIZATION: basic $auth_header" \
-            clone --quiet --depth=1 \
-            https://github.com/pydasc/dasc .source-checkouts/dasc
-          for name in pydasc dasc; do
-            content_commit="$(python - ".source-checkouts/$name/docs/publication-manifest.json" <<'PY'
-          import json
-          import re
-          import sys
-          from pathlib import Path
-
-          value = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8")).get("source_commit")
-          if not isinstance(value, str) or re.fullmatch(r"[0-9a-f]{40}", value) is None:
-              raise SystemExit("candidate publication manifest has an invalid source_commit")
-          print(value)
-          PY
-            )"
-            git -C ".source-checkouts/$name" -c credential.helper= \
-              -c core.hooksPath=/dev/null \
-              -c "http.https://github.com/.extraheader=AUTHORIZATION: basic $auth_header" \
-              fetch --quiet --no-tags --depth=1 origin "$content_commit"
-          done
+        run: >-
+          python scripts/acquire_sources.py --manifest docs-manifest.yml
+          --output .source-checkouts --mode candidate
 
       - name: Validate candidates and update locks
         if: steps.existing.outputs.skip != 'true'

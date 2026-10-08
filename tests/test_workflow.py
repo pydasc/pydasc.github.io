@@ -140,27 +140,23 @@ def test_release_jobs_check_outputs_before_upload_or_proposal():
             assert scans[0]["if"] == "steps.changes.outputs.changed == 'true'"
 
 
-def test_private_fetch_commands_do_not_persist_credentials_or_execute_hooks():
+def test_private_acquisition_has_explicit_modes_and_no_persisted_website_credentials():
     for path, name in [
         (WORKFLOW, "source-docs"),
         (DEPLOY_WORKFLOW, "build"),
         (UPDATE_WORKFLOW, "propose"),
     ]:
         job = load(path)["jobs"][name]
-        fetch = next(step for step in job["steps"] if step.get("name", "").startswith("Fetch "))
-        assert fetch["env"]["SOURCE_TOKEN"] == "${{ steps.source-token.outputs.token }}"
-        for invariant in [
-            "credential.helper=",
-            "core.hooksPath=/dev/null",
-            'echo "::add-mask::$auth_header"',
-            'fetch --quiet --no-tags --depth=1 origin "$content_commit"',
-        ]:
-            assert invariant in fetch["run"]
+        step = next(s for s in job["steps"] if "scripts/acquire_sources.py" in s.get("run", ""))
+        assert step["env"]["SOURCE_TOKEN"] == "${{ steps.source-token.outputs.token }}"
+        expected = "candidate" if path == UPDATE_WORKFLOW else "reviewed"
+        assert f"--mode {expected}" in step["run"]
+        assert "--output .source-checkouts" in step["run"]
+        if path == UPDATE_WORKFLOW:
+            assert step["if"] == "steps.existing.outputs.skip != 'true'"
         if path != UPDATE_WORKFLOW:
             checkout = next(
-                step
-                for step in job["steps"]
-                if step.get("uses", "").startswith("actions/checkout@")
+                s for s in job["steps"] if s.get("uses", "").startswith("actions/checkout@")
             )
             assert checkout["with"]["persist-credentials"] == "false"
 
